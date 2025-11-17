@@ -1,7 +1,10 @@
 import express from "express";
 import cors from "cors";
+<<<<<<< HEAD
 import path from "path";
 import { fileURLToPath } from "url";
+=======
+>>>>>>> 5233624581559cbf03b2586aadf6b3c4067d9d43
 import { initDatabase } from "./db.js";
 import authRoutes from "./routes/auth.js";
 import projectRoutes from "./routes/projects.js";
@@ -12,8 +15,11 @@ import userRoutes from "./routes/users.js";
 
 const app = express();
 const PORT = process.env.SERVER_PORT || 4000;
+<<<<<<< HEAD
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distPath = path.join(__dirname, "..", "dist");
+=======
+>>>>>>> 5233624581559cbf03b2586aadf6b3c4067d9d43
 
 initDatabase();
 
@@ -36,6 +42,7 @@ app.use("/api/instant-analyses", instantRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/users", userRoutes);
 
+<<<<<<< HEAD
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(distPath));
 
@@ -45,11 +52,17 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
+=======
+>>>>>>> 5233624581559cbf03b2586aadf6b3c4067d9d43
 app.use((err, _req, res, _next) => {
   console.error("Unhandled server error", err);
   res.status(500).json({ message: "服务器内部错误" });
 });
 
 app.listen(PORT, () => {
+<<<<<<< HEAD
   console.log(`XCodeReviewer server listening on port ${PORT}`);
+=======
+  console.log(`XCodeReviewer API server listening on port ${PORT}`);
+>>>>>>> 5233624581559cbf03b2586aadf6b3c4067d9d43
 });

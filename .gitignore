@@ -99,5 +99,8 @@ temp/
 .vercel
 
 .build/
+<<<<<<< HEAD
 
 /.env
+=======
+>>>>>>> 5233624581559cbf03b2586aadf6b3c4067d9d43

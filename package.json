@@ -7,9 +7,12 @@
     "build": "vite build",
     "preview": "vite preview --strictPort --port 5173",
     "server": "node server/index.js",
+<<<<<<< HEAD
     "dev:all": "bash scripts/dev-all.sh",
     "docker:up": "bash scripts/docker-up.sh",
     "docker:package": "bash scripts/docker-package.sh",
+=======
+>>>>>>> 5233624581559cbf03b2586aadf6b3c4067d9d43
     "lint": "tsgo -p tsconfig.check.json; biome lint --only=correctness/noUndeclaredDependencies; ast-grep scan",
     "lint:fix": "biome check --apply .",
     "type-check": "tsc --noEmit",

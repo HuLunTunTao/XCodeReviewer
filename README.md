@@ -196,6 +196,7 @@ docker compose up -d --build
 常用命令：
 
 ```bash
+<<<<<<< HEAD
 docker compose ps                # 查看服务状态
 docker compose logs -f xcodereviewer   # 查看一体化服务日志
 docker compose down              # 停止并移除容器
@@ -207,6 +208,12 @@ pnpm docker:up
 pnpm docker:package
 # 在另一台服务器导入镜像
 docker load -i build/xcodereviewer_bundle.tar
+=======
+docker compose ps                        # 查看服务状态
+docker compose logs -f xcodereviewer-api # 查看 API / SQLite 日志
+docker compose logs -f xcodereviewer     # 查看前端日志
+docker compose down                      # 停止并移除容器
+>>>>>>> 5233624581559cbf03b2586aadf6b3c4067d9d43
 ```
 
 **✨ 运行时配置（推荐）**
@@ -241,6 +248,7 @@ pnpm install  # 或 npm install / yarn install
 cp .env.example .env
 # 编辑 .env 文件，配置必要参数（见下方配置说明）
 
+<<<<<<< HEAD
 # 4. 一键启动前后端（可选）
 pnpm dev:all
 
@@ -251,6 +259,15 @@ pnpm dev:all
 # pnpm dev
 
 # 6. 访问应用（上述任意方式都可）
+=======
+# 4. 启动后端 API（默认使用服务器本地 SQLite）
+pnpm server
+
+# 5. 启动前端开发服务器（另一个终端）
+pnpm dev
+
+# 6. 访问应用
+>>>>>>> 5233624581559cbf03b2586aadf6b3c4067d9d43
 # 浏览器打开 http://localhost:5173
 ```
 
