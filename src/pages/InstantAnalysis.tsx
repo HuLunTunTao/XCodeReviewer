@@ -479,13 +479,13 @@ class UserManager {
                   <div className="w-5 h-5 bg-red-600 rounded flex items-center justify-center mr-2">
                     <Zap className="w-3 h-3 text-white" />
                   </div>
-                  <span className="font-medium text-red-800 text-sm">AI 解释</span>
+                  <span className="font-medium text-primary text-sm">AI 解释</span>
                 </div>
 
                 <div className="space-y-2 text-xs">
                   {parsedExplanation.what && (
-                    <div className="border-l-2 border-red-600 pl-2">
-                      <span className="font-medium text-red-700">问题：</span>
+                    <div className="border-l-2 border-accent pl-2">
+                      <span className="font-medium text-primary">问题：</span>
                       <span className="text-gray-700 ml-1">{parsedExplanation.what}</span>
                     </div>
                   )}
@@ -505,13 +505,13 @@ class UserManager {
                   )}
 
                   {parsedExplanation.learn_more && (
-                    <div className="border-l-2 border-red-400 pl-2">
-                      <span className="font-medium text-red-600">链接：</span>
+                    <div className="border-l-2 border-accent pl-2">
+                      <span className="font-medium text-primary">链接：</span>
                       <a
                         href={parsedExplanation.learn_more}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-red-600 hover:text-red-800 hover:underline ml-1"
+                        className="text-accent-foreground hover:text-primary hover:underline ml-1"
                       >
                         {parsedExplanation.learn_more}
                       </a>
@@ -523,10 +523,10 @@ class UserManager {
           } else {
             // 如果无法解析JSON，回退到原始显示方式
             return (
-              <div className="bg-white border border-red-200 rounded-lg p-3">
+              <div className="bg-white border border-accent rounded-lg p-3">
                 <div className="flex items-center mb-2">
-                  <Zap className="w-4 h-4 text-red-600 mr-2" />
-                  <span className="font-medium text-red-800 text-sm">AI 解释</span>
+                  <Zap className="w-4 h-4 text-primary mr-2" />
+                  <span className="font-medium text-primary text-sm">AI 解释</span>
                 </div>
                 <p className="text-gray-700 text-xs leading-relaxed">{issue.ai_explanation}</p>
               </div>
@@ -713,7 +713,7 @@ class UserManager {
             <CardContent>
               {/* 核心指标 */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="text-center p-4 bg-white rounded-lg border border-red-200">
+                <div className="text-center p-4 bg-white rounded-lg border border-accent">
                   <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center mx-auto mb-3">
                     <Target className="w-6 h-6 text-white" />
                   </div>

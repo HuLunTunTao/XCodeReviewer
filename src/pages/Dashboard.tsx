@@ -110,11 +110,11 @@ export default function Dashboard() {
           });
 
           const typeMap: Record<string, { name: string; color: string }> = {
-            security: { name: '安全问题', color: '#dc2626' },
-            bug: { name: '潜在Bug', color: '#7f1d1d' },
-            performance: { name: '性能问题', color: '#b91c1c' },
-            style: { name: '代码风格', color: '#991b1b' },
-            maintainability: { name: '可维护性', color: '#450a0a' }
+            security: { name: '安全问题', color: '#1d4ed8' },
+            bug: { name: '潜在Bug', color: '#2563eb' },
+            performance: { name: '性能问题', color: '#0ea5e9' },
+            style: { name: '代码风格', color: '#38bdf8' },
+            maintainability: { name: '可维护性', color: '#93c5fd' }
           };
 
           const issueData = Object.entries(typeCount).map(([type, count]) => ({
@@ -142,7 +142,7 @@ export default function Dashboard() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-      case 'running': return 'bg-red-50 text-red-700 border-red-200';
+      case 'running': return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'failed': return 'bg-red-100 text-red-800 border-red-300';
       default: return 'bg-gray-100 text-gray-700 border-gray-200';
     }

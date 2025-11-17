@@ -20,9 +20,9 @@ export default function Header() {
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3 group">
             <img 
-              src="/logo_xcodereviewer.png" 
+              src="/images/logo/logo-icon.svg" 
               alt="XCodeReviewer Logo" 
-              className="w-9 h-9 rounded-xl shadow-sm group-hover:shadow-md transition-all"
+              className="w-9 h-9 rounded-xl shadow-sm group-hover:shadow-md transition-all bg-blue-50 p-1.5"
             />
             <span className="text-xl font-bold text-gray-900 group-hover:text-primary transition-colors">XCodeReviewer</span>
           </Link>
@@ -35,7 +35,7 @@ export default function Header() {
                 to={route.path}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                   location.pathname === route.path
-                    ? "text-primary bg-red-50"
+                    ? "text-primary bg-blue-50"
                     : "text-gray-700 hover:text-primary hover:bg-gray-50"
                 }`}
               >
@@ -85,7 +85,7 @@ export default function Header() {
                   to={route.path}
                   className={`block px-3 py-2 text-base font-medium rounded-md transition-colors ${
                     location.pathname === route.path
-                      ? "text-primary bg-red-50"
+                      ? "text-primary bg-blue-50"
                       : "text-gray-700 hover:text-primary hover:bg-gray-50"
                   }`}
                   onClick={() => setMobileMenuOpen(false)}
