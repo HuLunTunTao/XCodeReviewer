@@ -88,6 +88,7 @@ export async function runRepositoryAudit(params: {
   githubToken?: string;
   gitlabToken?: string;
   createdBy?: string;
+  tags?: string[];
 }) {
   const branch = params.branch || "main";
   const excludes = params.exclude || [];
@@ -99,6 +100,7 @@ export async function runRepositoryAudit(params: {
     branch_name: branch,
     exclude_patterns: excludes,
     scan_config: scanConfig,
+    tags: params.tags || [],
     created_by: params.createdBy,
     total_files: 0,
     scanned_files: 0,

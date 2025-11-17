@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TagInput } from "@/components/ui/tag-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -62,6 +63,8 @@ export default function InstantAnalysis() {
   const [analysisTime, setAnalysisTime] = useState(0);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [taskName, setTaskName] = useState(() => buildAuditTaskName("即时分析"));
+  const [analysisTags, setAnalysisTags] = useState<string[]>([]);
+  const [resultTags, setResultTags] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loadingCardRef = useRef<HTMLDivElement>(null);
 
@@ -242,13 +245,15 @@ class UserManager {
 
       const startTime = Date.now();
 
+      const tagsSnapshot = [...analysisTags];
       const analysisResult = await CodeAnalysisEngine.analyzeCode(code, language);
       const endTime = Date.now();
       const duration = (endTime - startTime) / 1000;
 
       setResult(analysisResult);
       setAnalysisTime(duration);
-      await persistInstantAuditTask(analysisResult, trimmedTaskName, new Date(startTime).toISOString(), new Date(endTime).toISOString());
+      await persistInstantAuditTask(analysisResult, trimmedTaskName, new Date(startTime).toISOString(), new Date(endTime).toISOString(), tagsSnapshot);
+      setResultTags(tagsSnapshot);
       regenerateTaskName();
 
       // 保存分析记录（可选，未登录时跳过）
@@ -388,7 +393,8 @@ class UserManager {
     analysisResult: CodeAnalysisResult,
     trimmedName: string,
     startedAtISO: string,
-    completedAtISO: string
+    completedAtISO: string,
+    tags: string[]
   ) => {
     try {
       const projectId = await ensureInstantAnalysisProjectId();
@@ -402,7 +408,8 @@ class UserManager {
         branch_name: undefined,
         exclude_patterns: [],
         scan_config: { language, source: "instant" },
-        created_by: user?.id || "local-user"
+        created_by: user?.id || "local-user",
+        tags
       });
       const taskId = createdTask.id;
       const totalLines = code.split("\n").length;
@@ -454,6 +461,7 @@ class UserManager {
       branch_name: undefined,
       exclude_patterns: '[]',
       scan_config: JSON.stringify({ language }),
+      tags: resultTags,
       total_files: 1,
       scanned_files: 1,
       total_lines: code.split('\n').length,
@@ -761,6 +769,16 @@ class UserManager {
             <p className="text-xs text-gray-500">
               将同步到“审计任务”列表，未修改时默认使用“即时分析 + 当前时间”命名
             </p>
+            <div className="space-y-2 pt-4">
+              <Label>任务标签</Label>
+              <TagInput
+                value={analysisTags}
+                onChange={setAnalysisTags}
+                placeholder="输入标签后按 Enter，如 安全、性能，可留空"
+                disabled={analyzing}
+              />
+              <p className="text-xs text-gray-500">标签将用于任务筛选，可输入多个</p>
+            </div>
           </div>
 
           {/* 代码编辑器 */}

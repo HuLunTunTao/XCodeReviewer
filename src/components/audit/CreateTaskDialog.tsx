@@ -27,6 +27,7 @@ import { scanZipFile, validateZipFile } from "@/features/projects/services/repoZ
 import { loadZipFile } from "@/shared/utils/zipStorage";
 import { SUPPORTED_LANGUAGES } from "@/shared/constants";
 import { buildAuditTaskName } from "@/shared/utils/taskName";
+import { TagInput } from "@/components/ui/tag-input";
 
 interface CreateTaskDialogProps {
   open: boolean;
@@ -57,7 +58,8 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
       include_docs: false,
       max_file_size: 1024, // KB
       analysis_depth: "standard"
-    }
+    },
+    tags: []
   });
   const [taskNameEdited, setTaskNameEdited] = useState(false);
   const previousProjectIdRef = useRef<string | null>(null);
@@ -183,7 +185,8 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
           zipFile: zipFile,
           excludePatterns: taskForm.exclude_patterns,
           scanConfig: taskForm.scan_config,
-          createdBy: 'local-user'
+          createdBy: 'local-user',
+          tags: taskForm.tags || []
         });
       } else {
         // GitHub/GitLab等远程仓库
@@ -211,7 +214,8 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
           scanConfig: taskForm.scan_config,
           githubToken,
           gitlabToken,
-          createdBy: 'local-user'
+          createdBy: 'local-user',
+          tags: taskForm.tags || []
         });
       }
       
@@ -267,7 +271,8 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
         include_docs: false,
         max_file_size: 1024,
         analysis_depth: "standard"
-      }
+      },
+      tags: []
     });
     setTaskNameEdited(false);
     setSearchTerm("");
@@ -483,6 +488,18 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
                   />
                   <p className="text-xs text-muted-foreground">
                     将显示在任务列表中，建议包含项目背景和时间信息
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>任务标签</Label>
+                  <TagInput
+                    value={taskForm.tags || []}
+                    onChange={(tags) => setTaskForm({ ...taskForm, tags })}
+                    placeholder="输入标签并按 Enter，如 安全、性能"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    用于任务筛选和归档，可留空
                   </p>
                 </div>
 

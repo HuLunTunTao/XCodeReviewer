@@ -175,8 +175,9 @@ export async function scanZipFile(params: {
     check_design_patterns?: boolean;
   };
   createdBy?: string;
+  tags?: string[];
 }): Promise<string> {
-  const { projectId, taskName, zipFile, excludePatterns = [], scanConfig = {}, createdBy } = params;
+  const { projectId, taskName, zipFile, excludePatterns = [], scanConfig = {}, createdBy, tags = [] } = params;
 
   // 创建审计任务，初始化进度字段
   const task = await api.createAuditTask({
@@ -186,6 +187,7 @@ export async function scanZipFile(params: {
     branch_name: "uploaded",
     exclude_patterns: excludePatterns,
     scan_config: { source: "zip_upload", ...scanConfig },
+    tags,
     created_by: createdBy,
     total_files: 0,
     scanned_files: 0,

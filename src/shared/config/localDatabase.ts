@@ -463,6 +463,7 @@ class LocalDatabase {
       branch_name: taskData.branch_name || undefined,
       exclude_patterns: JSON.stringify(taskData.exclude_patterns || []),
       scan_config: JSON.stringify(taskData.scan_config || {}),
+      tags: JSON.stringify(taskData.tags || []),
       total_files: 0,
       scanned_files: 0,
       total_lines: 0,
@@ -493,6 +494,9 @@ class LocalDatabase {
     }
     if (updated.exclude_patterns && typeof updated.exclude_patterns !== 'string') {
       updated.exclude_patterns = JSON.stringify(updated.exclude_patterns as any);
+    }
+    if (updated.tags && typeof updated.tags !== 'string') {
+      updated.tags = JSON.stringify(updated.tags as any);
     }
     
     await this.put(STORES.AUDIT_TASKS, updated);

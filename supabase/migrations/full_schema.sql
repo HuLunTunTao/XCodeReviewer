@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS audit_tasks (
     branch_name VARCHAR(100),
     exclude_patterns JSONB DEFAULT '[]',
     scan_config JSONB DEFAULT '{}',
+    tags JSONB DEFAULT '[]',
     total_files INTEGER DEFAULT 0,
     scanned_files INTEGER DEFAULT 0,
     total_lines INTEGER DEFAULT 0,

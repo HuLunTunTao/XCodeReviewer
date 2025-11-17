@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { TagInput } from "@/components/ui/tag-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -46,6 +47,7 @@ export default function ProjectDetail() {
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [showQuickNameDialog, setShowQuickNameDialog] = useState(false);
   const [quickTaskName, setQuickTaskName] = useState("");
+  const [quickTaskTags, setQuickTaskTags] = useState<string[]>([]);
   const [editForm, setEditForm] = useState<CreateProjectForm>({
     name: "",
     description: "",
@@ -105,10 +107,11 @@ export default function ProjectDetail() {
   const handleRunAudit = () => {
     if (!project) return;
     setQuickTaskName(buildAuditTaskName(project.name));
+    setQuickTaskTags([]);
     setShowQuickNameDialog(true);
   };
 
-  const executeAuditTask = async (taskName: string) => {
+  const executeAuditTask = async (taskName: string, tags: string[] = []) => {
     if (!project || !id) return;
     
     // 检查是否有仓库地址
@@ -124,7 +127,8 @@ export default function ProjectDetail() {
           branch: project.default_branch || 'main',
           githubToken: undefined,
           gitlabToken: undefined,
-          createdBy: undefined
+          createdBy: undefined,
+          tags
         });
         
         console.log('审计任务创建成功，taskId:', taskId);
@@ -156,7 +160,8 @@ export default function ProjectDetail() {
               taskName,
               zipFile: file,
               excludePatterns: ['node_modules/**', '.git/**', 'dist/**', 'build/**'],
-              createdBy: 'local-user'
+              createdBy: 'local-user',
+              tags
             });
             
             console.log('审计任务创建成功，taskId:', taskId);
@@ -193,7 +198,7 @@ export default function ProjectDetail() {
       return;
     }
     setShowQuickNameDialog(false);
-    await executeAuditTask(trimmed);
+    await executeAuditTask(trimmed, quickTaskTags);
   };
 
   const handleOpenSettings = () => {
@@ -675,6 +680,15 @@ export default function ProjectDetail() {
             <p className="text-xs text-muted-foreground">
               将显示在审计任务列表中，建议包含项目与时间信息方便识别
             </p>
+            <div className="space-y-2 pt-4">
+              <Label>任务标签</Label>
+              <TagInput
+                value={quickTaskTags}
+                onChange={setQuickTaskTags}
+                placeholder="输入标签后按 Enter，可留空"
+              />
+              <p className="text-xs text-muted-foreground">用于任务筛选，可留空</p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowQuickNameDialog(false)} disabled={scanning}>

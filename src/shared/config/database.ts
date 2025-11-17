@@ -452,6 +452,7 @@ export const api = {
         branch_name: task.branch_name || null,
         exclude_patterns: JSON.stringify(task.exclude_patterns || []),
         scan_config: JSON.stringify(task.scan_config || {}),
+        tags: task.tags || [],
         created_by: task.created_by,
         status: 'pending'
       }])

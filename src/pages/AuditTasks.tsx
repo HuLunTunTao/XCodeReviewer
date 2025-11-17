@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Activity, 
   AlertTriangle, 
@@ -21,6 +23,117 @@ import CreateTaskDialog from "@/components/audit/CreateTaskDialog";
 import { calculateTaskProgress } from "@/shared/utils/utils";
 import { AuditTaskActions } from "@/components/audit/AuditTaskActions";
 import { getAuditTaskDisplayName } from "@/shared/utils/taskName";
+import { TagInput } from "@/components/ui/tag-input";
+
+const languageLabelMap: Record<string, string> = {
+  javascript: "JavaScript",
+  typescript: "TypeScript",
+  python: "Python",
+  java: "Java",
+  go: "Go",
+  rust: "Rust",
+  cpp: "C++",
+  csharp: "C#",
+  php: "PHP",
+  ruby: "Ruby",
+  swift: "Swift",
+  kotlin: "Kotlin",
+  dart: "Dart",
+  objectivec: "Objective-C",
+  objectivecpp: "Objective-C++",
+  gdscript: "GDScript",
+  scala: "Scala",
+  perl: "Perl",
+  haskell: "Haskell",
+  lua: "Lua",
+  erlang: "Erlang"
+};
+
+const formatLanguageLabel = (lang: string) => {
+  const normalized = (lang || '').toLowerCase();
+  return languageLabelMap[normalized] || (normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : '');
+};
+
+const parseStringArray = (value: unknown): string[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value
+      .map(item => (typeof item === 'string' ? item.trim() : ''))
+      .filter((item): item is string => !!item);
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map(item => (typeof item === 'string' ? item.trim() : ''))
+          .filter((item): item is string => !!item);
+      }
+    } catch {
+      return trimmed
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+};
+
+const parseScanConfig = (config: AuditTask['scan_config']): Record<string, unknown> => {
+  if (!config) return {};
+  if (typeof config === 'string') {
+    try {
+      return JSON.parse(config) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+  return (config || {}) as Record<string, unknown>;
+};
+
+const getTaskTags = (task: AuditTask): string[] => {
+  const directTags = parseStringArray(task.tags);
+  if (directTags.length > 0) {
+    return directTags;
+  }
+  const config = parseScanConfig(task.scan_config);
+  const tagsFromConfig = config['tags'];
+  if (tagsFromConfig) {
+    return parseStringArray(tagsFromConfig);
+  }
+  return [];
+};
+
+const getTaskLanguages = (task: AuditTask): string[] => {
+  const languages = new Set<string>();
+  parseStringArray(task.project?.programming_languages).forEach(lang => {
+    languages.add(lang.toLowerCase());
+  });
+
+  const config = parseScanConfig(task.scan_config);
+  const overrides = config['language_overrides'];
+  if (Array.isArray(overrides)) {
+    overrides.forEach(lang => {
+      if (typeof lang === 'string') {
+        languages.add(lang.toLowerCase());
+      }
+    });
+  }
+
+  const primaryLanguage = config['language'];
+  if (typeof primaryLanguage === 'string') {
+    languages.add(primaryLanguage.toLowerCase());
+  }
+
+  const fallbackLanguage = config['language_override'];
+  if (typeof fallbackLanguage === 'string') {
+    languages.add(fallbackLanguage.toLowerCase());
+  }
+
+  return Array.from(languages).filter(Boolean);
+};
 
 export default function AuditTasks() {
   const [tasks, setTasks] = useState<AuditTask[]>([]);
@@ -28,6 +141,11 @@ export default function AuditTasks() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [languageFilter, setLanguageFilter] = useState<string>("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
 
   useEffect(() => {
     loadTasks();
@@ -122,14 +240,94 @@ export default function AuditTasks() {
     });
   };
 
+  const availableProjects = useMemo(() => {
+    const map = new Map<string, string>();
+    tasks.forEach(task => {
+      if (task.project?.id) {
+        map.set(task.project.id, task.project.name || '未命名项目');
+      }
+    });
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+  }, [tasks]);
+
+  const availableLanguages = useMemo(() => {
+    const langSet = new Set<string>();
+    tasks.forEach(task => {
+      getTaskLanguages(task).forEach(lang => langSet.add(lang));
+    });
+    return Array.from(langSet).sort((a, b) => formatLanguageLabel(a).localeCompare(formatLanguageLabel(b), 'zh-CN'));
+  }, [tasks]);
+
+  const availableTagOptions = useMemo(() => {
+    const map = new Map<string, { label: string; count: number }>();
+    tasks.forEach(task => {
+      getTaskTags(task).forEach(tag => {
+        const normalized = tag.toLowerCase();
+        const existing = map.get(normalized);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          map.set(normalized, { label: tag, count: 1 });
+        }
+      });
+    });
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [tasks]);
+
+  const handleAddFilterTag = (tag: string) => {
+    setTagFilters(prev => {
+      const normalized = tag.toLowerCase();
+      const exists = prev.some(existing => existing.toLowerCase() === normalized);
+      if (exists) return prev;
+      return [...prev, tag];
+    });
+  };
+
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+    setProjectFilter("all");
+    setLanguageFilter("all");
+    setStartDate("");
+    setEndDate("");
+    setTagFilters([]);
+  };
+
+  const hasActiveFilters = useMemo(() => {
+    return Boolean(
+      searchTerm.trim() ||
+      statusFilter !== "all" ||
+      projectFilter !== "all" ||
+      languageFilter !== "all" ||
+      startDate ||
+      endDate ||
+      tagFilters.length > 0
+    );
+  }, [searchTerm, statusFilter, projectFilter, languageFilter, startDate, endDate, tagFilters]);
+
   const keyword = searchTerm.trim().toLowerCase();
+  const parsedStart = startDate ? new Date(`${startDate}T00:00:00`).getTime() : NaN;
+  const parsedEnd = endDate ? new Date(`${endDate}T23:59:59`).getTime() : NaN;
+  const startTimestamp = Number.isNaN(parsedStart) ? null : parsedStart;
+  const endTimestamp = Number.isNaN(parsedEnd) ? null : parsedEnd;
+  const normalizedTagFilters = tagFilters.map(tag => tag.toLowerCase());
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = !keyword ||
       getAuditTaskDisplayName(task).toLowerCase().includes(keyword) ||
       (task.project?.name || '').toLowerCase().includes(keyword) ||
       task.task_type.toLowerCase().includes(keyword);
     const matchesStatus = statusFilter === "all" || task.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesProject = projectFilter === "all" || task.project?.id === projectFilter;
+    const createdTime = new Date(task.created_at).getTime();
+    const matchesStartDate = !startTimestamp || createdTime >= startTimestamp;
+    const matchesEndDate = !endTimestamp || createdTime <= endTimestamp;
+    const languages = getTaskLanguages(task);
+    const matchesLanguage = languageFilter === "all" || languages.includes(languageFilter);
+    const taskTagValues = getTaskTags(task).map(tag => tag.toLowerCase());
+    const matchesTags = normalizedTagFilters.length === 0 || normalizedTagFilters.every(tag => taskTagValues.includes(tag));
+    return matchesSearch && matchesStatus && matchesProject && matchesStartDate && matchesEndDate && matchesLanguage && matchesTags;
   });
 
   if (loading) {
@@ -215,10 +413,10 @@ export default function AuditTasks() {
 
       {/* 搜索和筛选 */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center space-x-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+        <CardContent className="p-4 space-y-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:space-x-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
                 placeholder="搜索项目名称或任务类型..."
                 value={searchTerm}
@@ -226,7 +424,7 @@ export default function AuditTasks() {
                 className="pl-10"
               />
             </div>
-            <div className="flex space-x-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant={statusFilter === "all" ? "default" : "outline"}
                 size="sm"
@@ -257,14 +455,98 @@ export default function AuditTasks() {
               </Button>
             </div>
           </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-2">
+              <Label>项目</Label>
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="全部项目" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部项目</SelectItem>
+                  {availableProjects.map(project => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>语言</Label>
+              <Select value={languageFilter} onValueChange={setLanguageFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="全部语言" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部语言</SelectItem>
+                  {availableLanguages.map(lang => (
+                    <SelectItem key={lang} value={lang}>
+                      {formatLanguageLabel(lang)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>开始日期</Label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(event) => setStartDate(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>结束日期</Label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(event) => setEndDate(event.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>标签筛选</Label>
+            <TagInput
+              value={tagFilters}
+              onChange={setTagFilters}
+              placeholder="输入标签后按 Enter，支持多个"
+            />
+            {availableTagOptions.length > 0 && (
+              <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+                <span>常用：</span>
+                {availableTagOptions.slice(0, 6).map((tag) => (
+                  <button
+                    type="button"
+                    key={tag.label}
+                    onClick={() => handleAddFilterTag(tag.label)}
+                    className="rounded-full border border-dashed border-primary/30 px-3 py-1 text-primary transition hover:border-primary hover:bg-primary/5"
+                  >
+                    #{tag.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end">
+            <Button variant="ghost" size="sm" onClick={handleResetFilters} disabled={!hasActiveFilters}>
+              重置筛选
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
       {/* 任务列表 */}
       {filteredTasks.length > 0 ? (
         <div className="space-y-4">
-          {filteredTasks.map((task) => (
-            <Card key={task.id} className="card-modern group">
+          {filteredTasks.map((task) => {
+            const taskTags = getTaskTags(task);
+            const taskLanguages = getTaskLanguages(task);
+            return (
+              <Card key={task.id} className="card-modern group">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-6 gap-4">
                   <div className="flex items-start space-x-4">
@@ -282,6 +564,20 @@ export default function AuditTasks() {
                       <p className="text-sm text-gray-500">
                         {task.project?.name || '未知项目'} · {task.task_type === 'repository' ? '仓库审计任务' : '即时分析任务'}
                       </p>
+                      {(taskLanguages.length > 0 || taskTags.length > 0) && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {taskLanguages.map((lang) => (
+                            <Badge key={`${task.id}-lang-${lang}`} variant="secondary" className="bg-slate-100 text-slate-600">
+                              {formatLanguageLabel(lang)}
+                            </Badge>
+                          ))}
+                          {taskTags.map((tag) => (
+                            <Badge key={`${task.id}-tag-${tag}`} variant="outline" className="border-primary/30 text-primary">
+                              #{tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                       <p className="text-xs text-gray-400 mt-1">
                         创建于 {formatDate(task.created_at)}
                       </p>
@@ -373,8 +669,9 @@ export default function AuditTasks() {
                   </div>
                 </div>
               </CardContent>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       ) : (
         <Card className="card-modern">

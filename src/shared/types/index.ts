@@ -58,6 +58,7 @@ export interface AuditTask {
   branch_name?: string;
   exclude_patterns: string;
   scan_config: string;
+  tags?: string[] | string | null;
   total_files: number;
   scanned_files: number;
   total_lines: number;
@@ -131,6 +132,7 @@ export interface CreateAuditTaskForm {
     extra_hints?: string;
     check_design_patterns?: boolean;
   };
+  tags?: string[];
 }
 
 export interface InstantAnalysisForm {
