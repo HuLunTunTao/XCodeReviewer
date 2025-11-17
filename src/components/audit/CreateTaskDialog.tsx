@@ -25,6 +25,7 @@ import TerminalProgressDialog from "./TerminalProgressDialog";
 import { runRepositoryAudit } from "@/features/projects/services/repoScan";
 import { scanZipFile, validateZipFile } from "@/features/projects/services/repoZipScan";
 import { loadZipFile } from "@/shared/utils/zipStorage";
+import { SUPPORTED_LANGUAGES } from "@/shared/constants";
 
 interface CreateTaskDialogProps {
   open: boolean;
@@ -163,6 +164,7 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
           projectId: project.id,
           zipFile: zipFile,
           excludePatterns: taskForm.exclude_patterns,
+          scanConfig: taskForm.scan_config,
           createdBy: 'local-user'
         });
       } else {
@@ -187,6 +189,7 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
           repoUrl: project.repository_url!,
           branch: taskForm.branch_name || project.default_branch || 'main',
           exclude: taskForm.exclude_patterns,
+          scanConfig: taskForm.scan_config,
           githubToken,
           gitlabToken,
           createdBy: 'local-user'
@@ -284,6 +287,53 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
     project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     project.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // 当选中项目变化时，初始化语言覆盖为项目的编程语言（仅在未设置时）
+  useEffect(() => {
+    if (!selectedProject) return;
+    const raw = (selectedProject as any).programming_languages;
+    let langs: string[] = [];
+    if (Array.isArray(raw)) {
+      langs = raw as string[];
+    } else if (typeof raw === 'string') {
+      try { langs = JSON.parse(raw) as string[]; } catch { langs = []; }
+    }
+    const normalize = (l: string) => {
+      const s = (l || '').toLowerCase();
+      const map: Record<string, string> = {
+        'js': 'javascript', 'javascript': 'javascript',
+        'ts': 'typescript', 'typescript': 'typescript',
+        'py': 'python', 'python': 'python',
+        'java': 'java',
+        'go': 'go',
+        'rs': 'rust', 'rust': 'rust',
+        'c++': 'cpp', 'cpp': 'cpp', 'c': 'cpp', 'cc': 'cpp',
+        'c#': 'csharp', 'csharp': 'csharp',
+        'php': 'php',
+        'rb': 'ruby', 'ruby': 'ruby',
+        'swift': 'swift',
+        'kt': 'kotlin', 'kotlin': 'kotlin',
+        'dart': 'dart',
+        'gdscript': 'gdscript', 'godot': 'gdscript',
+        'objective-c': 'objectivec', 'objectivec': 'objectivec', 'objc': 'objectivec',
+        'objective-c++': 'objectivecpp', 'objectivecpp': 'objectivecpp', 'objc++': 'objectivecpp'
+      };
+      return map[s] || s;
+    };
+    const allowed = new Set(SUPPORTED_LANGUAGES);
+    langs = langs.map(normalize).filter(l => allowed.has(l));
+    setTaskForm(prev => {
+      const current = prev.scan_config.language_overrides || [];
+      if (current && current.length > 0) return prev;
+      return { ...prev, scan_config: { ...prev.scan_config, language_overrides: langs } };
+    });
+  }, [selectedProject]);
+
+  const toggleOverrideLanguage = (lang: string) => {
+    const current = taskForm.scan_config.language_overrides || [];
+    const next = current.includes(lang) ? current.filter(l => l !== lang) : [...current, lang];
+    setTaskForm({ ...taskForm, scan_config: { ...taskForm.scan_config, language_overrides: next } });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -653,6 +703,21 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
                           <p className="text-xs text-gray-500">扫描 README, docs 等文档文件</p>
                         </div>
                       </div>
+
+                      <div className="space-y-2">
+                        <Label>临时语言覆盖（可多选）</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {SUPPORTED_LANGUAGES.map((lang) => (
+                            <div key={lang} className="flex items-center space-x-2">
+                              <Checkbox
+                                checked={(taskForm.scan_config.language_overrides || []).includes(lang)}
+                                onCheckedChange={() => toggleOverrideLanguage(lang)}
+                              />
+                              <span className="text-sm">{lang}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="space-y-4">
@@ -696,6 +761,36 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
                             <SelectItem value="deep">深度扫描</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>额外提示词</Label>
+                        <Input
+                          placeholder="例如：关注异步资源释放、跨平台兼容性等"
+                          value={taskForm.scan_config.extra_hints || ''}
+                          onChange={(e) =>
+                            setTaskForm({
+                              ...taskForm,
+                              scan_config: { ...taskForm.scan_config, extra_hints: e.target.value || undefined }
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="flex items-center space-x-3">
+                        <Checkbox
+                          checked={taskForm.scan_config.check_design_patterns !== false}
+                          onCheckedChange={(checked) =>
+                            setTaskForm({
+                              ...taskForm,
+                              scan_config: { ...taskForm.scan_config, check_design_patterns: !!checked }
+                            })
+                          }
+                        />
+                        <div>
+                          <p className="text-sm font-medium">检查 GOF23 与 OO 原则</p>
+                          <p className="text-xs text-gray-500">识别是否实现或适用设计模式，检查是否违反面向对象原则</p>
+                        </div>
                       </div>
                     </div>
                   </div>

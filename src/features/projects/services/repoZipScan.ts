@@ -164,9 +164,18 @@ export async function scanZipFile(params: {
   projectId: string;
   zipFile: File;
   excludePatterns?: string[];
+  scanConfig?: {
+    include_tests?: boolean;
+    include_docs?: boolean;
+    max_file_size?: number;
+    analysis_depth?: 'basic' | 'standard' | 'deep';
+    language_override?: string;
+    extra_hints?: string;
+    check_design_patterns?: boolean;
+  };
   createdBy?: string;
 }): Promise<string> {
-  const { projectId, zipFile, excludePatterns = [], createdBy } = params;
+  const { projectId, zipFile, excludePatterns = [], scanConfig = {}, createdBy } = params;
 
   // 创建审计任务，初始化进度字段
   const task = await api.createAuditTask({
@@ -174,7 +183,7 @@ export async function scanZipFile(params: {
     task_type: "repository",
     branch_name: "uploaded",
     exclude_patterns: excludePatterns,
-    scan_config: { source: "zip_upload" },
+    scan_config: { source: "zip_upload", ...scanConfig },
     created_by: createdBy,
     total_files: 0,
     scanned_files: 0,
@@ -292,7 +301,14 @@ export async function scanZipFile(params: {
                 totalLines += lines;
 
                 // 使用AI分析代码
-                const analysis = await CodeAnalysisEngine.analyzeCode(file.content, language);
+                const overrides = Array.isArray(scanConfig.language_overrides) ? scanConfig.language_overrides : (scanConfig.language_override ? [scanConfig.language_override] : []);
+                if (overrides.length > 0 && !overrides.includes(language)) {
+                  continue;
+                }
+                const analysis = await CodeAnalysisEngine.analyzeCode(file.content, language, {
+                  extraHints: scanConfig.extra_hints || '',
+                  checkDesignPatterns: scanConfig.check_design_patterns !== false
+                });
                 
                 // ✓ 检查点2：LLM分析完成后检查是否取消（最小化浪费）
                 if (taskControl.isCancelled(taskId)) {

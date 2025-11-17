@@ -1,4 +1,5 @@
 import { api } from "@/shared/config/database";
+import { getLanguageFromExtension } from "@/shared/utils/utils";
 import { CodeAnalysisEngine } from "@/features/analysis/services";
 import { taskControl } from "@/shared/services/taskControl";
 
@@ -74,18 +75,28 @@ export async function runRepositoryAudit(params: {
   repoUrl: string;
   branch?: string;
   exclude?: string[];
+  scanConfig?: {
+    include_tests?: boolean;
+    include_docs?: boolean;
+    max_file_size?: number;
+    analysis_depth?: 'basic' | 'standard' | 'deep';
+    language_override?: string;
+    extra_hints?: string;
+    check_design_patterns?: boolean;
+  };
   githubToken?: string;
   gitlabToken?: string;
   createdBy?: string;
 }) {
   const branch = params.branch || "main";
   const excludes = params.exclude || [];
+  const scanConfig = params.scanConfig || {};
   const task = await api.createAuditTask({
     project_id: params.projectId,
     task_type: "repository",
     branch_name: branch,
     exclude_patterns: excludes,
-    scan_config: {},
+    scan_config: scanConfig,
     created_by: params.createdBy,
     total_files: 0,
     scanned_files: 0,
@@ -286,8 +297,14 @@ export async function runRepositoryAudit(params: {
             const content = await contentRes.text();
             if (content.length > MAX_FILE_SIZE_BYTES) { await new Promise(r=>setTimeout(r, LLM_GAP_MS)); continue; }
             totalLines += content.split(/\r?\n/).length;
-            const language = (f.path.split(".").pop() || "").toLowerCase();
-            const analysis = await CodeAnalysisEngine.analyzeCode(content, language);
+            const ext = (f.path.split(".").pop() || "").toLowerCase();
+            const langName = getLanguageFromExtension(ext);
+            const overrides = Array.isArray(scanConfig.language_overrides) ? scanConfig.language_overrides : (scanConfig.language_override ? [scanConfig.language_override] : []);
+            if (overrides.length > 0 && !overrides.includes(langName)) { await new Promise(r=>setTimeout(r, LLM_GAP_MS)); continue; }
+            const analysis = await CodeAnalysisEngine.analyzeCode(content, langName, {
+              extraHints: scanConfig.extra_hints || '',
+              checkDesignPatterns: scanConfig.check_design_patterns !== false
+            });
             
             // ✓ 检查点2：LLM分析完成后检查是否取消（最小化浪费）
             if (taskControl.isCancelled(taskId)) {

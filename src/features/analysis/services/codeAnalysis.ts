@@ -32,7 +32,7 @@ export class CodeAnalysisEngine {
     return new LLMService(config);
   }
 
-  static async analyzeCode(code: string, language: string): Promise<CodeAnalysisResult> {
+  static async analyzeCode(code: string, language: string, options?: { extraHints?: string; checkDesignPatterns?: boolean }): Promise<CodeAnalysisResult> {
     const llmService = this.createLLMService();
 
     // 获取输出语言配置
@@ -99,6 +99,7 @@ export class CodeAnalysisEngine {
 - 安全漏洞和风险
 - 可维护性和可读性
 - 最佳实践和设计模式
+- 设计模式与面向对象原则（GOF23、SOLID、DRY、KISS、YAGNI）：识别应使用模式却未使用、误用或违反原则的代码位置，并给出改进建议
 
 输出格式必须严格符合以下 JSON Schema：
 
@@ -174,6 +175,7 @@ Please comprehensively analyze the code from the following dimensions:
 - Security vulnerabilities and risks
 - Maintainability and readability
 - Best practices and design patterns
+- Design patterns and OO principles (GOF23, SOLID, DRY, KISS, YAGNI): identify places where patterns should be applied but are not, pattern misuses, or violations of OO principles, and provide improvements
 
 The output format MUST strictly conform to the following JSON Schema:
 
@@ -270,17 +272,23 @@ Example (assuming line 25 in code is "25| config[password] = user_password"):
 ` : `
 Domain hints: ${hintText}
 `) : '';
+    const userHints = (options?.extraHints || '').trim();
+    const extraUser = userHints ? (isChineseOutput ? `
+额外提示：${userHints}
+` : `
+Extra hints: ${userHints}
+`) : '';
     const userPrompt = isChineseOutput
       ? `编程语言: ${language}
 
-⚠️ 代码已标注行号（格式：行号| 代码内容），请根据行号准确填写 line 字段！${extra}
+⚠️ 代码已标注行号（格式：行号| 代码内容），请根据行号准确填写 line 字段！${extra}${extraUser}
 
 请分析以下代码:
 
 ${codeWithLineNumbers}`
       : `Programming Language: ${language}
 
-⚠️ Code is annotated with line numbers (format: lineNumber| code), please fill the 'line' field accurately based on these numbers!${extra}
+⚠️ Code is annotated with line numbers (format: lineNumber| code), please fill the 'line' field accurately based on these numbers!${extra}${extraUser}
 
 Please analyze the following code:
 

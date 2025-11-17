@@ -124,6 +124,10 @@ export interface CreateAuditTaskForm {
     include_docs?: boolean;
     max_file_size?: number;
     analysis_depth?: 'basic' | 'standard' | 'deep';
+    language_override?: string;
+    language_overrides?: string[];
+    extra_hints?: string;
+    check_design_patterns?: boolean;
   };
 }
 
