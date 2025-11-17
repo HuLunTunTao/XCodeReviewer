@@ -4,9 +4,15 @@ import { api } from "@/shared/config/database";
 import { taskControl } from "@/shared/services/taskControl";
 
 const TEXT_EXTENSIONS = [
-  ".js", ".ts", ".tsx", ".jsx", ".py", ".java", ".go", ".rs", ".cpp", ".c", ".h", ".cc", ".hh",
-  ".cs", ".php", ".rb", ".kt", ".swift", ".sql", ".sh", ".json", ".yml", ".yaml"
-  // 注意：已移除 .md，因为文档文件会导致LLM返回非JSON格式
+  ".js", ".ts", ".tsx", ".jsx",
+  ".py", ".java", ".go", ".rs",
+  ".cpp", ".c", ".h", ".cc", ".hh",
+  ".cs", ".php", ".rb", ".kt", ".swift",
+  ".sql", ".sh", ".json", ".yml", ".yaml",
+  ".hpp", ".hxx", ".tpp", ".ipp", ".inl", ".cxx", ".cmake",
+  ".gd", ".gdnlib", ".gdns", ".tscn", ".tres", ".scn", ".res",
+  ".dart", ".gradle", ".xml", ".plist",
+  ".m", ".mm"
 ];
 
 const MAX_FILE_SIZE_BYTES = 200 * 1024; // 200KB
@@ -15,8 +21,22 @@ const MAX_ANALYZE_FILES = 50;
 // 从环境变量读取配置，豆包等API需要更长的延迟
 const LLM_GAP_MS = Number(import.meta.env.VITE_LLM_GAP_MS) || 2000; // 默认2秒，避免API限流
 
+const SPECIAL_FILENAMES = [
+  "cmakelists.txt",
+  "makefile",
+  "project.godot",
+  "export_presets.cfg",
+  "pubspec.yaml",
+  "analysis_options.yaml",
+  "build.gradle",
+  "settings.gradle"
+];
+
 function isTextFile(path: string): boolean {
-  return TEXT_EXTENSIONS.some(ext => path.toLowerCase().endsWith(ext));
+  const lower = path.toLowerCase();
+  const base = lower.split('/').pop() || "";
+  if (SPECIAL_FILENAMES.includes(base)) return true;
+  return TEXT_EXTENSIONS.some(ext => lower.endsWith(ext));
 }
 
 function shouldExclude(path: string, excludePatterns: string[]): boolean {
@@ -87,7 +107,15 @@ function shouldExclude(path: string, excludePatterns: string[]): boolean {
 }
 
 function getLanguageFromPath(path: string): string {
-  const extension = path.split('.').pop()?.toLowerCase() || '';
+  const lower = path.toLowerCase();
+  const base = lower.split('/').pop() || '';
+  if (base === 'cmakelists.txt') return 'cmake';
+  if (base === 'makefile') return 'makefile';
+  if (base === 'project.godot' || base === 'export_presets.cfg') return 'godot-config';
+  if (base === 'pubspec.yaml') return 'pubspec';
+  if (base === 'analysis_options.yaml') return 'dart-config';
+
+  const extension = lower.split('.').pop() || '';
   const languageMap: Record<string, string> = {
     'js': 'javascript',
     'jsx': 'javascript',
@@ -102,11 +130,31 @@ function getLanguageFromPath(path: string): string {
     'cc': 'cpp',
     'h': 'cpp',
     'hh': 'cpp',
+    'hpp': 'cpp',
+    'hxx': 'cpp',
+    'tpp': 'cpp',
+    'ipp': 'cpp',
+    'inl': 'cpp',
+    'cxx': 'cpp',
+    'm': 'objectivec',
+    'mm': 'objectivecpp',
     'cs': 'csharp',
     'php': 'php',
     'rb': 'ruby',
     'kt': 'kotlin',
-    'swift': 'swift'
+    'swift': 'swift',
+    'gd': 'gdscript',
+    'gdnlib': 'godot-config',
+    'gdns': 'godot-config',
+    'tscn': 'godot-config',
+    'tres': 'godot-config',
+    'scn': 'godot-config',
+    'res': 'godot-config',
+    'dart': 'dart',
+    'gradle': 'gradle',
+    'xml': 'xml',
+    'plist': 'plist',
+    'cmake': 'cmake'
   };
   
   return languageMap[extension] || 'text';

@@ -644,7 +644,7 @@ export default function TaskDetail() {
                 <div>
                   <p className="text-sm font-medium text-gray-500 mb-2">排除模式</p>
                   <div className="flex flex-wrap gap-2">
-                    {JSON.parse(task.exclude_patterns).map((pattern: string) => (
+                    {((typeof task.exclude_patterns === 'string' ? JSON.parse(task.exclude_patterns) : task.exclude_patterns) as string[]).map((pattern: string) => (
                       <Badge key={pattern} variant="outline" className="text-xs">
                         {pattern}
                       </Badge>
@@ -659,7 +659,11 @@ export default function TaskDetail() {
                   <p className="text-sm font-medium text-gray-500 mb-2">扫描配置</p>
                   <div className="bg-gray-50 rounded-lg p-3">
                     <pre className="text-xs text-gray-600">
-                      {JSON.stringify(JSON.parse(task.scan_config), null, 2)}
+                      {JSON.stringify(
+                        typeof task.scan_config === 'string' ? JSON.parse(task.scan_config) : task.scan_config,
+                        null,
+                        2
+                      )}
                     </pre>
                   </div>
                 </div>

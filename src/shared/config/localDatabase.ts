@@ -486,6 +486,13 @@ class LocalDatabase {
       ...updates,
       id,
     };
+
+    if (updated.scan_config && typeof updated.scan_config !== 'string') {
+      updated.scan_config = JSON.stringify(updated.scan_config as any);
+    }
+    if (updated.exclude_patterns && typeof updated.exclude_patterns !== 'string') {
+      updated.exclude_patterns = JSON.stringify(updated.exclude_patterns as any);
+    }
     
     await this.put(STORES.AUDIT_TASKS, updated);
     return this.getAuditTaskById(id) as Promise<AuditTask>;

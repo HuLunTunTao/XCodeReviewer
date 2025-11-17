@@ -231,17 +231,56 @@ Example (assuming line 25 in code is "25| config[password] = user_password"):
     // 为代码添加行号，帮助LLM准确定位问题
     const codeWithLineNumbers = code.split('\n').map((line, idx) => `${idx + 1}| ${line}`).join('\n');
     
+    const lang = (language || '').toLowerCase();
+    const zhHintsMap: Record<string, string> = {
+      'cpp': '重点检查内存管理、未定义行为、模板/头文件规范、并发与资源释放。',
+      'c': '重点检查内存安全、指针越界、资源释放与跨平台兼容性。',
+      'objectivec': '关注ARC/内存管理、Objective‑C语法惯例、线程与UI交互。',
+      'objectivecpp': '同时考虑C++与Obj‑C交互、ARC与C++对象生命周期。',
+      'gdscript': '检查信号连接、节点路径、资源加载、脚本与tscn/tres一致性。',
+      'godot-config': '核查场景/资源/库定义、依赖路径与导出配置一致性。',
+      'dart': '结合analysis_options与Flutter最佳实践，关注空安全、异步与状态管理。',
+      'pubspec': '检查依赖版本约束、可重复构建、Flutter插件声明与平台兼容。',
+      'dart-config': '校验静态分析规则、忽略项是否合理、与代码一致性。',
+      'cmake': '关注变量作用域、目标依赖、平台选项与生成配置的可移植性。',
+      'makefile': '检查目标依赖、模式规则、环境变量与并行构建的正确性。',
+      'gradle': '核查插件/依赖版本、构建任务配置、Android特定设置。',
+      'xml': '检查Android Manifest与资源XML的权限、组件与命名空间。',
+      'plist': '校验iOS Info.plist 配置键、权限与平台要求。'
+    };
+    const enHintsMap: Record<string, string> = {
+      'cpp': 'Focus on memory management, undefined behavior, templates/headers, concurrency.',
+      'c': 'Focus on memory safety, pointer bounds, resource release, portability.',
+      'objectivec': 'Check ARC/memory, Obj‑C idioms, threading and UI interactions.',
+      'objectivecpp': 'Consider C++/Obj‑C interop, ARC with C++ object lifecycle.',
+      'gdscript': 'Review signals, node paths, resource loading, tsdn/tres consistency.',
+      'godot-config': 'Validate scenes/resources/lib definitions, dependency paths, export configs.',
+      'dart': 'Apply analysis_options and Flutter best practices; null safety, async, state.',
+      'pubspec': 'Check dependency constraints, reproducible builds, plugin declarations.',
+      'dart-config': 'Validate static analysis rules, ignores, consistency with code.',
+      'cmake': 'Variables scopes, target deps, platform options, portability of generators.',
+      'makefile': 'Target deps, pattern rules, env vars, correctness with parallel builds.',
+      'gradle': 'Plugins/deps versions, build tasks, Android-specific settings.',
+      'xml': 'Android Manifest/resources: permissions, components, namespaces.',
+      'plist': 'iOS Info.plist keys, permissions, platform requirements.'
+    };
+    const hintText = isChineseOutput ? (zhHintsMap[lang] || '') : (enHintsMap[lang] || '');
+    const extra = hintText ? (isChineseOutput ? `
+领域提示：${hintText}
+` : `
+Domain hints: ${hintText}
+`) : '';
     const userPrompt = isChineseOutput
       ? `编程语言: ${language}
 
-⚠️ 代码已标注行号（格式：行号| 代码内容），请根据行号准确填写 line 字段！
+⚠️ 代码已标注行号（格式：行号| 代码内容），请根据行号准确填写 line 字段！${extra}
 
 请分析以下代码:
 
 ${codeWithLineNumbers}`
       : `Programming Language: ${language}
 
-⚠️ Code is annotated with line numbers (format: lineNumber| code), please fill the 'line' field accurately based on these numbers!
+⚠️ Code is annotated with line numbers (format: lineNumber| code), please fill the 'line' field accurately based on these numbers!${extra}
 
 Please analyze the following code:
 

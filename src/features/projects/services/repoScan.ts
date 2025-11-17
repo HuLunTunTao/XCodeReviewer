@@ -5,15 +5,38 @@ import { taskControl } from "@/shared/services/taskControl";
 type GithubTreeItem = { path: string; type: "blob" | "tree"; size?: number; url: string; sha: string };
 
 const TEXT_EXTENSIONS = [
-  ".js", ".ts", ".tsx", ".jsx", ".py", ".java", ".go", ".rs", ".cpp", ".c", ".h", ".cc", ".hh", ".cs", ".php", ".rb", ".kt", ".swift", ".sql", ".sh", ".json", ".yml", ".yaml"
-  // 注意：已移除 .md，因为文档文件会导致LLM返回非JSON格式
+  ".js", ".ts", ".tsx", ".jsx",
+  ".py", ".java", ".go", ".rs",
+  ".cpp", ".c", ".h", ".cc", ".hh",
+  ".cs", ".php", ".rb", ".kt", ".swift",
+  ".sql", ".sh", ".json", ".yml", ".yaml",
+  ".hpp", ".hxx", ".tpp", ".ipp", ".inl", ".cxx", ".cmake",
+  ".gd", ".gdnlib", ".gdns", ".tscn", ".tres", ".scn", ".res",
+  ".dart", ".gradle", ".xml", ".plist",
+  ".m", ".mm"
 ];
 const MAX_FILE_SIZE_BYTES = 200 * 1024;
 const MAX_ANALYZE_FILES = Number(import.meta.env.VITE_MAX_ANALYZE_FILES || 40);
 const LLM_CONCURRENCY = Number(import.meta.env.VITE_LLM_CONCURRENCY || 2);
 const LLM_GAP_MS = Number(import.meta.env.VITE_LLM_GAP_MS || 500);
 
-const isTextFile = (p: string) => TEXT_EXTENSIONS.some(ext => p.toLowerCase().endsWith(ext));
+const SPECIAL_FILENAMES = [
+  "cmakelists.txt",
+  "makefile",
+  "project.godot",
+  "export_presets.cfg",
+  "pubspec.yaml",
+  "analysis_options.yaml",
+  "build.gradle",
+  "settings.gradle"
+];
+
+const isTextFile = (p: string) => {
+  const lower = p.toLowerCase();
+  const base = lower.split('/').pop() || "";
+  if (SPECIAL_FILENAMES.includes(base)) return true;
+  return TEXT_EXTENSIONS.some(ext => lower.endsWith(ext));
+};
 const matchExclude = (p: string, ex: string[]) => ex.some(e => p.includes(e.replace(/^\//, "")) || (e.endsWith("/**") && p.startsWith(e.slice(0, -3).replace(/^\//, ""))));
 
 async function githubApi<T>(url: string, token?: string): Promise<T> {
@@ -166,13 +189,36 @@ export async function runRepositoryAudit(params: {
         .sort((a, b) => (a.path.length - b.path.length))
         .slice(0, MAX_ANALYZE_FILES);
 
+      const lowerPaths = files.map(f => f.path.toLowerCase());
+      const hasCMake = lowerPaths.some(p => p.endsWith('.cmake') || p.split('/').pop() === 'cmakelists.txt');
+      const hasMakefile = lowerPaths.some(p => p.split('/').pop() === 'makefile');
+      const hasCppFamily = lowerPaths.some(p => /\.(c|cpp|cc|cxx|h|hh|hpp|hxx|tpp|ipp|inl)$/.test(p));
+      const hasObjC = lowerPaths.some(p => /\.(m|mm)$/.test(p));
+      const hasGodotConfig = lowerPaths.some(p => ['project.godot','export_presets.cfg'].includes(p.split('/').pop() || ''));
+      const hasGodotFiles = lowerPaths.some(p => /\.(gd|tscn|tres|scn|res|gdnlib|gdns)$/.test(p));
+      const hasDartFiles = lowerPaths.some(p => p.endsWith('.dart'));
+      const hasFlutterPub = lowerPaths.some(p => p.split('/').pop() === 'pubspec.yaml');
+      const hasFlutterAndroid = lowerPaths.some(p => p.startsWith('android/') || p.includes('/android/'));
+      const hasFlutterIOS = lowerPaths.some(p => p.startsWith('ios/') || p.includes('/ios/'));
+      const isFlutterPlugin = (hasFlutterAndroid && hasFlutterIOS) && (hasDartFiles || hasFlutterPub);
+      let projectType: string = 'mixed';
+      if (hasFlutterPub && (hasDartFiles || hasFlutterAndroid || hasFlutterIOS)) {
+        projectType = isFlutterPlugin ? 'flutter-plugin' : 'flutter';
+      } else if (hasGodotConfig || hasGodotFiles) {
+        projectType = 'godot';
+      } else if (hasCMake || hasMakefile || hasCppFamily || hasObjC) {
+        projectType = 'c_cpp';
+      }
+      console.log(`🧭 项目类型检测: ${projectType}`);
+
       // 立即更新状态为 running 并设置总文件数，让用户看到进度
       console.log(`📊 任务 ${taskId}: 获取到 ${files.length} 个文件，开始分析`);
       await api.updateAuditTask(taskId, {
         status: "running",
         started_at: new Date().toISOString(),
         total_files: files.length,
-        scanned_files: 0
+        scanned_files: 0,
+        scan_config: JSON.stringify({ project_type: projectType })
       } as any);
       console.log(`✅ 任务 ${taskId}: 状态已更新为 running，total_files=${files.length}`);
 
@@ -375,5 +421,3 @@ export async function runRepositoryAudit(params: {
   // 立即返回任务ID，让用户可以跳转到任务详情页面
   return taskId;
 }
-
-

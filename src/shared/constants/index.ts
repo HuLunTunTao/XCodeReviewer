@@ -14,6 +14,10 @@ export const SUPPORTED_LANGUAGES = [
   'ruby',
   'swift',
   'kotlin',
+  'dart',
+  'gdscript',
+  'objectivec',
+  'objectivecpp',
 ] as const;
 
 // 问题类型

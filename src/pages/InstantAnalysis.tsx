@@ -587,7 +587,7 @@ class UserManager {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".js,.jsx,.ts,.tsx,.py,.java,.go,.rs,.cpp,.c,.cc,.h,.hh,.cs,.php,.rb,.swift,.kt"
+              accept=".js,.jsx,.ts,.tsx,.py,.java,.go,.rs,.cpp,.c,.cc,.h,.hh,.cs,.php,.rb,.swift,.kt,.gd,.dart,.m,.mm,.cxx,.hpp,.hxx,.tpp,.ipp,.inl,.cmake,.xml,.plist,.gradle"
               onChange={handleFileUpload}
               className="hidden"
             />
