@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { 
@@ -44,6 +44,8 @@ export default function ProjectDetail() {
   const [showTerminalDialog, setShowTerminalDialog] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [showQuickNameDialog, setShowQuickNameDialog] = useState(false);
+  const [quickTaskName, setQuickTaskName] = useState("");
   const [editForm, setEditForm] = useState<CreateProjectForm>({
     name: "",
     description: "",
@@ -100,9 +102,14 @@ export default function ProjectDetail() {
     }
   };
 
-  const handleRunAudit = async () => {
+  const handleRunAudit = () => {
+    if (!project) return;
+    setQuickTaskName(buildAuditTaskName(project.name));
+    setShowQuickNameDialog(true);
+  };
+
+  const executeAuditTask = async (taskName: string) => {
     if (!project || !id) return;
-    const generatedTaskName = buildAuditTaskName(project.name);
     
     // 检查是否有仓库地址
     if (project.repository_url) {
@@ -112,7 +119,7 @@ export default function ProjectDetail() {
         console.log('开始启动仓库审计任务...');
         const taskId = await runRepositoryAudit({
           projectId: id,
-          taskName: generatedTaskName,
+          taskName,
           repoUrl: project.repository_url,
           branch: project.default_branch || 'main',
           githubToken: undefined,
@@ -146,7 +153,7 @@ export default function ProjectDetail() {
             // 启动ZIP文件审计
             const taskId = await scanZipFile({
               projectId: id,
-              taskName: generatedTaskName,
+              taskName,
               zipFile: file,
               excludePatterns: ['node_modules/**', '.git/**', 'dist/**', 'build/**'],
               createdBy: 'local-user'
@@ -168,7 +175,7 @@ export default function ProjectDetail() {
           }
         } else {
           setScanning(false);
-          toast.warning('此项目未配置仓库地址，也未上传ZIP文件。请先在项目设置中配置仓库地址，或通过"新建任务"上传ZIP文件。');
+          toast.warning('此项目未配置仓库地址，也未上传ZIP文件。请先在项目设置中配置仓库地址，或通过\"新建任务\"上传ZIP文件。');
           // 不自动打开对话框，让用户自己选择
         }
       } catch (error) {
@@ -177,6 +184,16 @@ export default function ProjectDetail() {
         toast.error('读取ZIP文件失败，请检查项目配置');
       }
     }
+  };
+
+  const handleConfirmQuickTask = async () => {
+    const trimmed = quickTaskName.trim();
+    if (!trimmed) {
+      toast.error("请输入任务名称");
+      return;
+    }
+    setShowQuickNameDialog(false);
+    await executeAuditTask(trimmed);
   };
 
   const handleOpenSettings = () => {
@@ -639,6 +656,36 @@ export default function ProjectDetail() {
         taskId={currentTaskId}
         taskType="repository"
       />
+
+      {/* 快速任务命名对话框 */}
+      <Dialog open={showQuickNameDialog} onOpenChange={setShowQuickNameDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>启动审计任务</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="quick-task-name">任务名称</Label>
+            <Input
+              id="quick-task-name"
+              value={quickTaskName}
+              onChange={(e) => setQuickTaskName(e.target.value)}
+              placeholder={project ? buildAuditTaskName(project.name) : '请输入任务名称'}
+              autoFocus
+            />
+            <p className="text-xs text-muted-foreground">
+              将显示在审计任务列表中，建议包含项目与时间信息方便识别
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowQuickNameDialog(false)} disabled={scanning}>
+              取消
+            </Button>
+            <Button onClick={handleConfirmQuickTask} disabled={scanning}>
+              {scanning ? '启动中...' : '开始审计'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 项目编辑对话框 */}
       <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>

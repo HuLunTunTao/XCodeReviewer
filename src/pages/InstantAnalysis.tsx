@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,6 +29,9 @@ import { api } from "@/shared/config/database";
 import type { CodeAnalysisResult, AuditTask, AuditIssue } from "@/shared/types";
 import { toast } from "sonner";
 import ExportReportDialog from "@/components/reports/ExportReportDialog";
+import { buildAuditTaskName } from "@/shared/utils/taskName";
+
+const INSTANT_ANALYSIS_PROJECT_STORAGE_KEY = "xcodereviewer_instant_project_id";
 
 // AI解释解析函数
 function parseAIExplanation(aiExplanation: string) {
@@ -56,6 +61,7 @@ export default function InstantAnalysis() {
   const [result, setResult] = useState<CodeAnalysisResult | null>(null);
   const [analysisTime, setAnalysisTime] = useState(0);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [taskName, setTaskName] = useState(() => buildAuditTaskName("即时分析"));
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loadingCardRef = useRef<HTMLDivElement>(null);
 
@@ -217,6 +223,11 @@ class UserManager {
       toast.error("请选择编程语言");
       return;
     }
+    const trimmedTaskName = taskName.trim();
+    if (!trimmedTaskName) {
+      toast.error("请输入任务名称");
+      return;
+    }
 
     try {
       setAnalyzing(true);
@@ -237,6 +248,8 @@ class UserManager {
 
       setResult(analysisResult);
       setAnalysisTime(duration);
+      await persistInstantAuditTask(analysisResult, trimmedTaskName, new Date(startTime).toISOString(), new Date(endTime).toISOString());
+      regenerateTaskName();
 
       // 保存分析记录（可选，未登录时跳过）
       if (user) {
@@ -337,6 +350,96 @@ class UserManager {
     setLanguage("");
     setResult(null);
     setAnalysisTime(0);
+    regenerateTaskName();
+  };
+  const regenerateTaskName = () => {
+    setTaskName(buildAuditTaskName("即时分析"));
+  };
+
+  const ensureInstantAnalysisProjectId = async (): Promise<string | null> => {
+    try {
+      if (typeof window === "undefined") return null;
+      const cached = localStorage.getItem(INSTANT_ANALYSIS_PROJECT_STORAGE_KEY);
+      if (cached) {
+        const project = await api.getProjectById(cached);
+        if (project) {
+          return cached;
+        }
+        localStorage.removeItem(INSTANT_ANALYSIS_PROJECT_STORAGE_KEY);
+      }
+      const createdProject = await api.createProject({
+        name: "即时代码分析",
+        description: "系统自动创建，用于保存即时分析任务",
+        repository_type: "other",
+        default_branch: "instant",
+        programming_languages: language ? [language] : []
+      });
+      if (createdProject?.id) {
+        localStorage.setItem(INSTANT_ANALYSIS_PROJECT_STORAGE_KEY, createdProject.id);
+        return createdProject.id;
+      }
+    } catch (error) {
+      console.error("创建即时分析项目失败:", error);
+    }
+    return null;
+  };
+
+  const persistInstantAuditTask = async (
+    analysisResult: CodeAnalysisResult,
+    trimmedName: string,
+    startedAtISO: string,
+    completedAtISO: string
+  ) => {
+    try {
+      const projectId = await ensureInstantAnalysisProjectId();
+      if (!projectId) {
+        throw new Error("无法创建用于保存即时分析的项目");
+      }
+      const createdTask = await api.createAuditTask({
+        project_id: projectId,
+        name: trimmedName,
+        task_type: "instant",
+        branch_name: undefined,
+        exclude_patterns: [],
+        scan_config: { language, source: "instant" },
+        created_by: user?.id || "local-user"
+      });
+      const taskId = createdTask.id;
+      const totalLines = code.split("\n").length;
+      await api.updateAuditTask(taskId, {
+        status: "completed",
+        started_at: startedAtISO,
+        completed_at: completedAtISO,
+        total_files: 1,
+        scanned_files: 1,
+        total_lines: totalLines,
+        issues_count: analysisResult.issues.length,
+        quality_score: analysisResult.quality_score
+      } as any);
+
+      await Promise.all(
+        analysisResult.issues.map((issue, index) =>
+          api.createAuditIssue({
+            task_id: taskId,
+            file_path: `instant-analysis.${language || "txt"}`,
+            line_number: issue.line,
+            column_number: issue.column,
+            issue_type: (issue.type as any) || "maintainability",
+            severity: (issue.severity as any) || "medium",
+            title: issue.title || `即时问题 ${index + 1}`,
+            description: issue.description || undefined,
+            suggestion: issue.suggestion || undefined,
+            code_snippet: issue.code_snippet || undefined,
+            ai_explanation: issue.ai_explanation || (issue.xai ? JSON.stringify(issue.xai) : undefined),
+            status: "open"
+          })
+        )
+      );
+      toast.info("已保存到“审计任务”，可随时在任务列表中查看", { duration: 4000 });
+    } catch (error) {
+      console.error("保存即时分析任务失败:", error);
+      toast.warning("分析完成，但同步到审计任务时出现问题，请稍后重试");
+    }
   };
 
   // 构造临时任务和问题数据用于导出
@@ -641,6 +744,23 @@ class UserManager {
             >
               Kotlin
             </Button>
+          </div>
+
+          {/* 任务名称 */}
+          <div className="space-y-2">
+            <Label htmlFor="instant-task-name">任务名称 *</Label>
+            <Input
+              id="instant-task-name"
+              value={taskName}
+              onChange={(e) => {
+                setTaskName(e.target.value);
+              }}
+              placeholder={buildAuditTaskName("即时分析")}
+              disabled={analyzing}
+            />
+            <p className="text-xs text-gray-500">
+              将同步到“审计任务”列表，未修改时默认使用“即时分析 + 当前时间”命名
+            </p>
           </div>
 
           {/* 代码编辑器 */}
