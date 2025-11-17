@@ -1,17 +1,24 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { 
-  Menu, 
-  X
-} from "lucide-react";
+import { Menu, X, LogOut } from "lucide-react";
 import routes from "@/app/routes";
+import { useAuth } from "@/shared/contexts/AuthContext";
+import { toast } from "sonner";
 
 export default function Header() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const visibleRoutes = routes.filter(route => route.visible !== false);
+
+  const handleLogout = () => {
+    logout();
+    toast.success("已退出登录");
+    navigate("/login");
+  };
 
   return (
     <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-200/60 sticky top-0 z-50">
@@ -46,6 +53,19 @@ export default function Header() {
 
           {/* User Menu */}
           <div className="flex items-center space-x-4">
+            {user && (
+              <div className="hidden md:flex items-center space-x-3">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900">{user.full_name || user.email}</p>
+                  <p className="text-xs text-muted-foreground">{user.role === "admin" ? "管理员" : "成员"}</p>
+                </div>
+                <Button variant="ghost" size="sm" className="px-2" onClick={handleLogout}>
+                  <LogOut className="w-4 h-4 mr-1" />
+                  退出
+                </Button>
+              </div>
+            )}
+
             {/* GitHub Link */}
             <a
               href="https://github.com/lintsinghua/XCodeReviewer"
@@ -80,11 +100,11 @@ export default function Header() {
           <div className="md:hidden border-t bg-white">
             <div className="px-2 pt-2 pb-3 space-y-1">
               {visibleRoutes.map((route) => (
-                <Link
-                  key={route.path}
-                  to={route.path}
-                  className={`block px-3 py-2 text-base font-medium rounded-md transition-colors ${
-                    location.pathname === route.path
+              <Link
+                key={route.path}
+                to={route.path}
+                className={`block px-3 py-2 text-base font-medium rounded-md transition-colors ${
+                  location.pathname === route.path
                       ? "text-primary bg-blue-50"
                       : "text-gray-700 hover:text-primary hover:bg-gray-50"
                   }`}
@@ -93,6 +113,20 @@ export default function Header() {
                   {route.name}
                 </Link>
               ))}
+
+              {user && (
+                <button
+                  type="button"
+                  className="flex items-center w-full px-3 py-2 text-base font-medium text-gray-700 hover:text-primary hover:bg-gray-50 rounded-md transition-colors"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    handleLogout();
+                  }}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  退出登录
+                </button>
+              )}
               
               {/* GitHub Link for Mobile */}
               <a

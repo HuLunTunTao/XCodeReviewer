@@ -63,6 +63,10 @@ export default defineConfig({
       ],
     },
     proxy: {
+      "/api": {
+        target: "http://localhost:4000",
+        changeOrigin: true,
+      },
       "/dashscope-proxy": {
         target: "https://dashscope.aliyuncs.com",
         changeOrigin: true,

@@ -21,6 +21,7 @@ import CreateTaskDialog from "@/components/audit/CreateTaskDialog";
 import { calculateTaskProgress } from "@/shared/utils/utils";
 import { AuditTaskActions } from "@/components/audit/AuditTaskActions";
 import { getAuditTaskDisplayName } from "@/shared/utils/taskName";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function AuditTasks() {
   const [tasks, setTasks] = useState<AuditTask[]>([]);
@@ -28,6 +29,7 @@ export default function AuditTasks() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [projectFilter, setProjectFilter] = useState<string>("all");
 
   useEffect(() => {
     loadTasks();
@@ -129,8 +131,18 @@ export default function AuditTasks() {
       (task.project?.name || '').toLowerCase().includes(keyword) ||
       task.task_type.toLowerCase().includes(keyword);
     const matchesStatus = statusFilter === "all" || task.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesProject = projectFilter === "all" || task.project_id === projectFilter;
+    return matchesSearch && matchesStatus && matchesProject;
   });
+
+  const projectOptions = Array.from(
+    tasks.reduce((map, task) => {
+      if (task.project?.id) {
+        map.set(task.project.id, task.project.name || "未命名项目");
+      }
+      return map;
+    }, new Map<string, string>())
+  );
 
   if (loading) {
     return (
@@ -216,7 +228,7 @@ export default function AuditTasks() {
       {/* 搜索和筛选 */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
@@ -226,7 +238,7 @@ export default function AuditTasks() {
                 className="pl-10"
               />
             </div>
-            <div className="flex space-x-2">
+            <div className="flex flex-wrap gap-2 items-center">
               <Button
                 variant={statusFilter === "all" ? "default" : "outline"}
                 size="sm"
@@ -255,6 +267,21 @@ export default function AuditTasks() {
               >
                 失败
               </Button>
+            </div>
+            <div className="w-full lg:w-60">
+              <Select value={projectFilter} onValueChange={setProjectFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="按项目筛选" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部项目</SelectItem>
+                  {projectOptions.map(([id, name]) => (
+                    <SelectItem key={id} value={id}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>

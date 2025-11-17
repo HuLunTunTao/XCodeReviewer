@@ -27,6 +27,7 @@ import { scanZipFile, validateZipFile } from "@/features/projects/services/repoZ
 import { loadZipFile } from "@/shared/utils/zipStorage";
 import { SUPPORTED_LANGUAGES } from "@/shared/constants";
 import { buildAuditTaskName } from "@/shared/utils/taskName";
+import { useAuth } from "@/shared/contexts/AuthContext";
 
 interface CreateTaskDialogProps {
   open: boolean;
@@ -61,6 +62,7 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
   });
   const [taskNameEdited, setTaskNameEdited] = useState(false);
   const previousProjectIdRef = useRef<string | null>(null);
+  const { user } = useAuth();
 
   const commonExcludePatterns = [
     { label: "node_modules", value: "node_modules/**", description: "Node.js 依赖包" },
@@ -183,7 +185,7 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
           zipFile: zipFile,
           excludePatterns: taskForm.exclude_patterns,
           scanConfig: taskForm.scan_config,
-          createdBy: 'local-user'
+          createdBy: user?.id || 'local-user'
         });
       } else {
         // GitHub/GitLab等远程仓库
@@ -211,7 +213,7 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
           scanConfig: taskForm.scan_config,
           githubToken,
           gitlabToken,
-          createdBy: 'local-user'
+          createdBy: user?.id || 'local-user'
         });
       }
       

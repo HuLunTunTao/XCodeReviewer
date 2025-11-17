@@ -1,0 +1,4 @@
+ignoredBuiltDependencies:
+  - '@ast-grep/cli'
+  - better-sqlite3
+  - esbuild
