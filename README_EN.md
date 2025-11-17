@@ -220,7 +220,12 @@ pnpm dev
 
 # 5. Access the application
 # Open http://localhost:5173 in your browser
+
+# 6. Start the backend API (server-side SQLite by default)
+npm run server
 ```
+
+The frontend communicates with the backend via `/api`. During development, the proxy in `vite.config.ts` forwards requests to `http://localhost:4000`.
 
 #### Core Configuration
 

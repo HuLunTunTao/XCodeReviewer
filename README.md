@@ -167,20 +167,39 @@ docker pull ghcr.io/lintsinghua/xcodereviewer:v1.1.0
 docker run -d -p 8888:80 --name xcodereviewer ghcr.io/lintsinghua/xcodereviewer:v1.1.0
 ```
 
-#### 方式二：本地构建（可选）
+> ℹ️ 该镜像仅包含静态前端。如需使用默认 SQLite/内置 API，请参考下方 Compose 方案。
 
-如果需要自定义构建：
+#### 方式二：本地构建（Docker Compose + SQLite）
+
+如需一键使用 SQLite + Node.js API，可直接使用仓库自带的 `docker-compose.yml`：
 
 ```bash
 # 1. 克隆项目
 git clone https://github.com/lintsinghua/XCodeReviewer.git
 cd XCodeReviewer
 
-# 2. 使用 Docker Compose 构建并启动
-docker-compose up -d
+# 2. 复制环境变量并按需调整端口 / JWT / SQLite 路径
+cp .env.example .env
 
-# 3. 访问应用
-# 浏览器打开 http://localhost:8888
+# 3. 构建并启动（包含前端 + API + SQLite）
+docker compose up -d --build
+
+# 4. 访问应用
+# 浏览器打开 http://localhost:8888 （可通过 FRONTEND_PORT 修改）
+```
+
+默认情况下：
+- 前端监听 `FRONTEND_PORT=8888`
+- API 监听 `SERVER_PORT=4000`
+- SQLite 数据文件持久化在 `xcodereviewer-data` 卷，对应容器内 `/app/data/xcodereviewer.db`
+
+常用命令：
+
+```bash
+docker compose ps                        # 查看服务状态
+docker compose logs -f xcodereviewer-api # 查看 API / SQLite 日志
+docker compose logs -f xcodereviewer     # 查看前端日志
+docker compose down                      # 停止并移除容器
 ```
 
 **✨ 运行时配置（推荐）**
@@ -215,11 +234,17 @@ pnpm install  # 或 npm install / yarn install
 cp .env.example .env
 # 编辑 .env 文件，配置必要参数（见下方配置说明）
 
-# 4. 启动开发服务器
+# 4. 启动后端 API（默认使用服务器本地 SQLite）
+pnpm server
+
+# 5. 启动前端开发服务器（另一个终端）
 pnpm dev
 
-# 5. 访问应用
+# 6. 访问应用
 # 浏览器打开 http://localhost:5173
+```
+
+前端与后端使用 `/api` 进行通信，开发模式下已在 `vite.config.ts` 中配置代理，默认监听 `http://localhost:4000`。
 ```
 
 #### 核心配置说明

@@ -10,6 +10,13 @@ import { dbMode } from '@/shared/config/database';
 export function DatabaseStatus() {
   const getStatusConfig = () => {
     switch (dbMode) {
+      case 'server-sqlite':
+        return {
+          icon: Database,
+          label: '服务器 SQLite',
+          variant: 'default' as const,
+          description: '数据存储在服务器本地 SQLite 数据库'
+        };
       case 'local':
         return {
           icon: Database,
@@ -55,6 +62,14 @@ export function DatabaseStatus() {
 export function DatabaseStatusDetail() {
   const getStatusConfig = () => {
     switch (dbMode) {
+      case 'server-sqlite':
+        return {
+          icon: Database,
+          label: '服务器 SQLite 模式',
+          variant: 'default' as const,
+          description: '全部数据存储在后端服务器本地 SQLite 数据库中，便于单机部署与备份。',
+          tips: '提示：可通过系统管理页导出数据库备份。'
+        };
       case 'local':
         return {
           icon: Database,

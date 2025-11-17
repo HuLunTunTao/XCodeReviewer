@@ -21,6 +21,7 @@ build/
 # IDE and editor files
 .vscode/
 .idea/
+.trae/
 *.swp
 *.swo
 *~
@@ -96,3 +97,5 @@ jspm_packages/
 tmp/
 temp/
 .vercel
+
+.build/

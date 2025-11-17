@@ -30,6 +30,7 @@ import type { CodeAnalysisResult, AuditTask, AuditIssue } from "@/shared/types";
 import { toast } from "sonner";
 import ExportReportDialog from "@/components/reports/ExportReportDialog";
 import { buildAuditTaskName } from "@/shared/utils/taskName";
+import { useAuth } from "@/shared/contexts/AuthContext";
 
 const INSTANT_ANALYSIS_PROJECT_STORAGE_KEY = "xcodereviewer_instant_project_id";
 
@@ -54,7 +55,7 @@ function parseAIExplanation(aiExplanation: string) {
 }
 
 export default function InstantAnalysis() {
-  const user = null as any;
+  const { user } = useAuth();
   const [code, setCode] = useState("");
   const [language, setLanguage] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
@@ -461,11 +462,11 @@ class UserManager {
       quality_score: result.quality_score,
       started_at: undefined,
       completed_at: new Date().toISOString(),
-      created_by: 'local-user',
+      created_by: user?.id || 'instant-user',
       created_at: new Date().toISOString(),
       project: {
         id: 'instant',
-        owner_id: 'local-user',
+        owner_id: user?.id || 'instant-user',
         name: '即时分析',
         description: `${language} 代码即时分析`,
         repository_type: 'other',

@@ -21,11 +21,13 @@ import {
   CheckCircle,
   Clock,
   Play,
-  FileText
+  FileText,
+  Users,
+  Trash2
 } from "lucide-react";
 import { api } from "@/shared/config/database";
 import { runRepositoryAudit, scanZipFile } from "@/features/projects/services";
-import type { Project, AuditTask, CreateProjectForm } from "@/shared/types";
+import type { Project, AuditTask, CreateProjectForm, ProjectMember } from "@/shared/types";
 import { loadZipFile } from "@/shared/utils/zipStorage";
 import { toast } from "sonner";
 import CreateTaskDialog from "@/components/audit/CreateTaskDialog";
@@ -33,9 +35,12 @@ import TerminalProgressDialog from "@/components/audit/TerminalProgressDialog";
 import { AuditTaskActions } from "@/components/audit/AuditTaskActions";
 import { SUPPORTED_LANGUAGES } from "@/shared/constants";
 import { buildAuditTaskName, getAuditTaskDisplayName } from "@/shared/utils/taskName";
+import { useAuth } from "@/shared/contexts/AuthContext";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<AuditTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +59,11 @@ export default function ProjectDetail() {
     default_branch: "main",
     programming_languages: []
   });
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"manager" | "operator">("operator");
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const isOwner = !!(project && user && project.owner_id === user.id);
 
   // 将小写语言名转换为显示格式
   const formatLanguageName = (lang: string): string => {
@@ -87,18 +97,60 @@ export default function ProjectDetail() {
     
     try {
       setLoading(true);
-      const [projectData, tasksData] = await Promise.all([
+      const [projectData, tasksData, membersData] = await Promise.all([
         api.getProjectById(id),
-        api.getAuditTasks(id)
+        api.getAuditTasks(id),
+        api.getProjectMembers(id)
       ]);
       
       setProject(projectData);
       setTasks(tasksData);
+      setMembers(membersData);
     } catch (error) {
       console.error('Failed to load project data:', error);
       toast.error("加载项目数据失败");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleInviteMember = async () => {
+    if (!id) return;
+    if (!inviteEmail.trim()) {
+      toast.error("请输入成员邮箱");
+      return;
+    }
+    try {
+      setInviteLoading(true);
+      const updated = await api.addProjectMember(id, {
+        email: inviteEmail.trim(),
+        role: inviteRole
+      });
+      setMembers(updated);
+      setInviteEmail("");
+      toast.success("成员已添加");
+    } catch (error) {
+      console.error("Invite member failed:", error);
+      const message = error instanceof Error ? error.message : "操作失败";
+      toast.error(message);
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!id) return;
+    if (!confirm("确定要移除该成员吗？")) {
+      return;
+    }
+    try {
+      const updated = await api.removeProjectMember(id, memberId);
+      setMembers(updated);
+      toast.success("成员已移除");
+    } catch (error) {
+      console.error("Remove member failed:", error);
+      const message = error instanceof Error ? error.message : "操作失败";
+      toast.error(message);
     }
   };
 
@@ -156,7 +208,7 @@ export default function ProjectDetail() {
               taskName,
               zipFile: file,
               excludePatterns: ['node_modules/**', '.git/**', 'dist/**', 'build/**'],
-              createdBy: 'local-user'
+              createdBy: user?.id || 'instant-user'
             });
             
             console.log('审计任务创建成功，taskId:', taskId);
@@ -410,10 +462,11 @@ export default function ProjectDetail() {
 
       {/* 主要内容 */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">项目概览</TabsTrigger>
           <TabsTrigger value="tasks">审计任务</TabsTrigger>
           <TabsTrigger value="issues">问题管理</TabsTrigger>
+          <TabsTrigger value="members">项目成员</TabsTrigger>
           <TabsTrigger value="settings">项目设置</TabsTrigger>
         </TabsList>
 
@@ -630,6 +683,94 @@ export default function ProjectDetail() {
             <h3 className="text-lg font-medium text-muted-foreground mb-2">问题管理</h3>
             <p className="text-sm text-muted-foreground">此功能正在开发中</p>
           </div>
+        </TabsContent>
+
+        <TabsContent value="members" className="space-y-6">
+          <Card>
+            <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  项目成员
+                </CardTitle>
+                <CardDescription>配置所有者、管理者和操作者，支持多人协作审计</CardDescription>
+              </div>
+              {isOwner && (
+                <div className="flex flex-col md:flex-row gap-2 md:items-center">
+                  <Input
+                    placeholder="成员邮箱"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    className="md:w-60"
+                  />
+                  <Select value={inviteRole} onValueChange={(value: any) => setInviteRole(value)}>
+                    <SelectTrigger className="md:w-32">
+                      <SelectValue placeholder="角色" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manager">管理者</SelectItem>
+                      <SelectItem value="operator">操作者</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={handleInviteMember} disabled={inviteLoading}>
+                    {inviteLoading ? "添加中..." : "添加成员"}
+                  </Button>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>姓名</TableHead>
+                    <TableHead>邮箱</TableHead>
+                    <TableHead>角色</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {members.map((member) => (
+                    <TableRow key={member.id}>
+                      <TableCell className="font-medium">{member.user?.full_name || member.user?.email || member.user_id}</TableCell>
+                      <TableCell>{member.user?.email || "N/A"}</TableCell>
+                      <TableCell>
+                        <Badge variant={member.role === "owner" ? "default" : member.role === "manager" ? "secondary" : "outline"}>
+                          {member.role === "owner"
+                            ? "所有者"
+                            : member.role === "manager"
+                              ? "管理者"
+                              : "操作者"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {isOwner && member.role !== "owner" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveMember(member.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {members.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
+                        暂无成员
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+              {!isOwner && (
+                <p className="text-xs text-muted-foreground mt-4">
+                  只有项目所有者可以添加或移除成员
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-6">

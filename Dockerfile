@@ -1,10 +1,7 @@
-# 多阶段构建 - 构建阶段
-FROM node:18-alpine AS builder
+FROM node:18-alpine AS base
 
-# 设置工作目录
 WORKDIR /app
 
-# 禁用代理并安装 pnpm
 ENV HTTP_PROXY=""
 ENV HTTPS_PROXY=""
 ENV http_proxy=""
@@ -18,8 +15,14 @@ RUN npm config set registry https://registry.npmjs.org/ && \
     npm config delete http-proxy 2>/dev/null || true && \
     npm install -g pnpm
 
-# 声明构建参数 - 这些参数可以在 docker build 时传入
-# LLM 通用配置
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --no-frozen-lockfile
+
+COPY . .
+
+FROM base AS builder
+
+# 构建参数
 ARG VITE_LLM_PROVIDER
 ARG VITE_LLM_API_KEY
 ARG VITE_LLM_MODEL
@@ -28,71 +31,56 @@ ARG VITE_LLM_TIMEOUT
 ARG VITE_LLM_TEMPERATURE
 ARG VITE_LLM_MAX_TOKENS
 
-# Google Gemini 配置
 ARG VITE_GEMINI_API_KEY
 ARG VITE_GEMINI_MODEL
 ARG VITE_GEMINI_TIMEOUT_MS
 
-# OpenAI 配置
 ARG VITE_OPENAI_API_KEY
 ARG VITE_OPENAI_MODEL
 ARG VITE_OPENAI_BASE_URL
 
-# Claude 配置
 ARG VITE_CLAUDE_API_KEY
 ARG VITE_CLAUDE_MODEL
 
-# 通义千问配置
 ARG VITE_QWEN_API_KEY
 ARG VITE_QWEN_MODEL
 
-# DeepSeek 配置
 ARG VITE_DEEPSEEK_API_KEY
 ARG VITE_DEEPSEEK_MODEL
 
-# 智谱AI 配置
 ARG VITE_ZHIPU_API_KEY
 ARG VITE_ZHIPU_MODEL
 
-# Moonshot 配置
 ARG VITE_MOONSHOT_API_KEY
 ARG VITE_MOONSHOT_MODEL
 
-# 百度文心一言配置
 ARG VITE_BAIDU_API_KEY
 ARG VITE_BAIDU_MODEL
 
-# MiniMax 配置
 ARG VITE_MINIMAX_API_KEY
 ARG VITE_MINIMAX_MODEL
 
-# 豆包配置
 ARG VITE_DOUBAO_API_KEY
 ARG VITE_DOUBAO_MODEL
 
-# Ollama 配置
 ARG VITE_OLLAMA_API_KEY
 ARG VITE_OLLAMA_MODEL
 ARG VITE_OLLAMA_BASE_URL
 
-# Supabase 配置
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
 
-# GitHub 配置
 ARG VITE_GITHUB_TOKEN
 
-# 数据库配置
 ARG VITE_USE_LOCAL_DB
-
-# 应用配置
 ARG VITE_APP_ID
 ARG VITE_MAX_ANALYZE_FILES
 ARG VITE_LLM_CONCURRENCY
 ARG VITE_LLM_GAP_MS
 ARG VITE_OUTPUT_LANGUAGE
+ARG VITE_API_BASE_URL
 
-# 将构建参数转换为环境变量（Vite 构建时会读取这些环境变量）
+# 构建环境变量
 ENV VITE_LLM_PROVIDER=$VITE_LLM_PROVIDER
 ENV VITE_LLM_API_KEY=$VITE_LLM_API_KEY
 ENV VITE_LLM_MODEL=$VITE_LLM_MODEL
@@ -137,41 +125,37 @@ ENV VITE_OLLAMA_API_KEY=$VITE_OLLAMA_API_KEY
 ENV VITE_OLLAMA_MODEL=$VITE_OLLAMA_MODEL
 ENV VITE_OLLAMA_BASE_URL=$VITE_OLLAMA_BASE_URL
 
-ENV VITE_USE_LOCAL_DB=$VITE_USE_LOCAL_DB
 ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
 
 ENV VITE_GITHUB_TOKEN=$VITE_GITHUB_TOKEN
 
+ENV VITE_USE_LOCAL_DB=$VITE_USE_LOCAL_DB
 ENV VITE_APP_ID=$VITE_APP_ID
 ENV VITE_MAX_ANALYZE_FILES=$VITE_MAX_ANALYZE_FILES
 ENV VITE_LLM_CONCURRENCY=$VITE_LLM_CONCURRENCY
 ENV VITE_LLM_GAP_MS=$VITE_LLM_GAP_MS
 ENV VITE_OUTPUT_LANGUAGE=$VITE_OUTPUT_LANGUAGE
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
-# 复制依赖文件
-COPY package.json pnpm-lock.yaml ./
-
-# 安装依赖
-RUN pnpm install --no-frozen-lockfile
-
-# 复制项目文件（不包括 .env，因为我们使用构建参数）
-COPY . .
-
-# 构建应用（环境变量会在构建时被 Vite 读取并硬编码到代码中）
 RUN pnpm build
 
-# 生产阶段 - 使用 nginx 提供静态文件服务
+FROM base AS api
+
+ENV NODE_ENV=production
+ENV SERVER_PORT=4000
+
+RUN pnpm prune --prod
+
+EXPOSE 4000
+
+CMD ["node", "server/index.js"]
+
 FROM nginx:alpine
 
-# 复制自定义 nginx 配置
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# 从构建阶段复制构建产物
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# 暴露端口
 EXPOSE 80
 
-# 启动 nginx
 CMD ["nginx", "-g", "daemon off;"]

@@ -34,13 +34,14 @@ export interface Project {
   created_at: string;
   updated_at: string;
   owner?: Profile;
+  members?: ProjectMember[];
 }
 
 export interface ProjectMember {
   id: string;
   project_id: string;
   user_id: string;
-  role: 'owner' | 'admin' | 'member' | 'viewer';
+  role: 'owner' | 'manager' | 'operator' | 'viewer' | 'admin';
   permissions: string;
   joined_at: string;
   created_at: string;

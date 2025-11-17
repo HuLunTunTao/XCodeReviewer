@@ -1,5 +1,4 @@
 services:
-  # XCodeReviewer 前端应用
   xcodereviewer:
     build:
       context: .
@@ -63,7 +62,7 @@ services:
         - VITE_OLLAMA_BASE_URL=${VITE_OLLAMA_BASE_URL:-http://localhost:11434/v1}
         
         # 数据库配置
-        - VITE_USE_LOCAL_DB=${VITE_USE_LOCAL_DB:-true}
+        - VITE_USE_LOCAL_DB=${VITE_USE_LOCAL_DB:-false}
         - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
         - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
         
@@ -76,10 +75,13 @@ services:
         - VITE_LLM_CONCURRENCY=${VITE_LLM_CONCURRENCY:-2}
         - VITE_LLM_GAP_MS=${VITE_LLM_GAP_MS:-500}
         - VITE_OUTPUT_LANGUAGE=${VITE_OUTPUT_LANGUAGE:-zh-CN}
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-/api}
     
     container_name: xcodereviewer-app
     ports:
-      - "5174:80"
+      - "${FRONTEND_PORT:-8888}:80"
+    depends_on:
+      - xcodereviewer-api
     restart: unless-stopped
     networks:
       - xcodereviewer-network
@@ -90,6 +92,34 @@ services:
       retries: 3
       start_period: 40s
 
+  xcodereviewer-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    container_name: xcodereviewer-api
+    environment:
+      - SERVER_PORT=${SERVER_PORT:-4000}
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+      - JWT_SECRET=${JWT_SECRET:-xcodereviewer-secret}
+      - SQLITE_DB_PATH=${SQLITE_DB_PATH:-/app/data/xcodereviewer.db}
+    volumes:
+      - xcodereviewer-data:/app/data
+    ports:
+      - "${SERVER_PORT:-4000}:${SERVER_PORT:-4000}"
+    restart: unless-stopped
+    networks:
+      - xcodereviewer-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:${SERVER_PORT:-4000}/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
 networks:
   xcodereviewer-network:
     driver: bridge
+
+volumes:
+  xcodereviewer-data:

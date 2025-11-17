@@ -27,6 +27,20 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [issueTypeData, setIssueTypeData] = useState<Array<{ name: string; value: number; color: string }>>([]);
   const [qualityTrendData, setQualityTrendData] = useState<Array<{ date: string; score: number }>>([]);
+  const databaseBadgeClass = dbMode === 'server-sqlite'
+    ? 'bg-indigo-100 text-indigo-700'
+    : dbMode === 'local'
+      ? 'bg-blue-100 text-blue-700'
+      : dbMode === 'supabase'
+        ? 'bg-green-100 text-green-700'
+        : 'bg-gray-100 text-gray-700';
+  const databaseBadgeLabel = dbMode === 'server-sqlite'
+    ? '服务器 SQLite'
+    : dbMode === 'local'
+      ? '本地'
+      : dbMode === 'supabase'
+        ? '云端'
+        : '演示';
 
   useEffect(() => {
     loadDashboardData();
@@ -518,12 +532,8 @@ export default function Dashboard() {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">数据库模式</span>
-                <Badge className={
-                  dbMode === 'local' ? 'bg-blue-100 text-blue-700' :
-                    dbMode === 'supabase' ? 'bg-green-100 text-green-700' :
-                      'bg-gray-100 text-gray-700'
-                }>
-                  {dbMode === 'local' ? '本地' : dbMode === 'supabase' ? '云端' : '演示'}
+                <Badge className={databaseBadgeClass}>
+                  {databaseBadgeLabel}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">
