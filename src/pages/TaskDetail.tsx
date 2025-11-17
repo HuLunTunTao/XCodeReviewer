@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +30,8 @@ import { toast } from "sonner";
 import ExportReportDialog from "@/components/reports/ExportReportDialog";
 import { calculateTaskProgress } from "@/shared/utils/utils";
 import { taskControl } from "@/shared/services/taskControl";
+import { AuditTaskActions } from "@/components/audit/AuditTaskActions";
+import { getAuditTaskDisplayName } from "@/shared/utils/taskName";
 
 // AI解释解析函数
 function parseAIExplanation(aiExplanation: string) {
@@ -320,6 +322,7 @@ function IssuesList({ issues }: { issues: AuditIssue[] }) {
 
 export default function TaskDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [task, setTask] = useState<AuditTask | null>(null);
   const [issues, setIssues] = useState<AuditIssue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -434,6 +437,14 @@ export default function TaskDetail() {
     }, 1000);
   };
 
+  const handleTaskRenamed = (updatedTask: AuditTask) => {
+    setTask(updatedTask);
+  };
+
+  const handleTaskDeleted = (_taskId: string) => {
+    navigate("/audit-tasks");
+  };
+
 
 
   const formatDate = (dateString: string) => {
@@ -493,8 +504,8 @@ export default function TaskDetail() {
             </Button>
           </Link>
           <div>
-            <h1 className="page-title">任务详情</h1>
-            <p className="page-subtitle">{task.project?.name || '未知项目'} - 审计任务</p>
+            <h1 className="page-title">{getAuditTaskDisplayName(task)}</h1>
+            <p className="page-subtitle">{task.project?.name || '未知项目'}</p>
           </div>
         </div>
 
@@ -508,6 +519,11 @@ export default function TaskDetail() {
                     task.status === 'cancelled' ? '已取消' : '等待中'}
             </span>
           </Badge>
+          <AuditTaskActions
+            task={task}
+            onRenamed={handleTaskRenamed}
+            onDeleted={handleTaskDeleted}
+          />
           
           {/* 运行中或等待中的任务显示取消按钮 */}
           {(task.status === 'running' || task.status === 'pending') && (

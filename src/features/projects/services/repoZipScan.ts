@@ -162,6 +162,7 @@ function getLanguageFromPath(path: string): string {
 
 export async function scanZipFile(params: {
   projectId: string;
+  taskName: string;
   zipFile: File;
   excludePatterns?: string[];
   scanConfig?: {
@@ -175,11 +176,12 @@ export async function scanZipFile(params: {
   };
   createdBy?: string;
 }): Promise<string> {
-  const { projectId, zipFile, excludePatterns = [], scanConfig = {}, createdBy } = params;
+  const { projectId, taskName, zipFile, excludePatterns = [], scanConfig = {}, createdBy } = params;
 
   // 创建审计任务，初始化进度字段
   const task = await api.createAuditTask({
     project_id: projectId,
+    name: taskName || '未命名审计任务',
     task_type: "repository",
     branch_name: "uploaded",
     exclude_patterns: excludePatterns,

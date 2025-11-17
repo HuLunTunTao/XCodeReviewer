@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import { runRepositoryAudit } from "@/features/projects/services/repoScan";
 import { scanZipFile, validateZipFile } from "@/features/projects/services/repoZipScan";
 import { loadZipFile } from "@/shared/utils/zipStorage";
 import { SUPPORTED_LANGUAGES } from "@/shared/constants";
+import { buildAuditTaskName } from "@/shared/utils/taskName";
 
 interface CreateTaskDialogProps {
   open: boolean;
@@ -47,6 +48,7 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
   
   const [taskForm, setTaskForm] = useState<CreateAuditTaskForm>({
     project_id: "",
+    name: "",
     task_type: "repository",
     branch_name: "main",
     exclude_patterns: ["node_modules/**", ".git/**", "dist/**", "build/**", "*.log"],
@@ -57,6 +59,8 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
       analysis_depth: "standard"
     }
   });
+  const [taskNameEdited, setTaskNameEdited] = useState(false);
+  const previousProjectIdRef = useRef<string | null>(null);
 
   const commonExcludePatterns = [
     { label: "node_modules", value: "node_modules/**", description: "Node.js 依赖包" },
@@ -110,6 +114,13 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
     autoLoadZipFile();
   }, [taskForm.project_id, projects, hasLoadedZip]);
 
+  useEffect(() => {
+    if (previousProjectIdRef.current !== taskForm.project_id) {
+      setTaskNameEdited(false);
+      previousProjectIdRef.current = taskForm.project_id || null;
+    }
+  }, [taskForm.project_id]);
+
   const loadProjects = async () => {
     try {
       setLoading(true);
@@ -140,6 +151,12 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
       return;
     }
 
+    const normalizedTaskName = taskForm.name?.trim();
+    if (!normalizedTaskName) {
+      toast.error("请输入任务名称");
+      return;
+    }
+
     try {
       setCreating(true);
       
@@ -162,6 +179,7 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
         console.log('📦 调用 scanZipFile...');
         taskId = await scanZipFile({
           projectId: project.id,
+          taskName: normalizedTaskName,
           zipFile: zipFile,
           excludePatterns: taskForm.exclude_patterns,
           scanConfig: taskForm.scan_config,
@@ -186,6 +204,7 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
         
         taskId = await runRepositoryAudit({
           projectId: project.id,
+          taskName: normalizedTaskName,
           repoUrl: project.repository_url!,
           branch: taskForm.branch_name || project.default_branch || 'main',
           exclude: taskForm.exclude_patterns,
@@ -204,6 +223,7 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
           taskId,
           projectId: project.id,
           projectName: project.name,
+          taskName: normalizedTaskName,
           taskType: taskForm.task_type,
           branch: taskForm.branch_name,
           hasZipFile: !!zipFile,
@@ -238,6 +258,7 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
   const resetForm = () => {
     setTaskForm({
       project_id: "",
+      name: "",
       task_type: "repository",
       branch_name: "main",
       exclude_patterns: ["node_modules/**", ".git/**", "dist/**", "build/**", "*.log"],
@@ -248,6 +269,7 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
         analysis_depth: "standard"
       }
     });
+    setTaskNameEdited(false);
     setSearchTerm("");
   };
 
@@ -287,6 +309,18 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
     project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     project.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  useEffect(() => {
+    if (!selectedProject) return;
+    if (taskNameEdited) return;
+    const defaultName = buildAuditTaskName(selectedProject.name);
+    setTaskForm(prev => {
+      if (prev.name === defaultName) {
+        return prev;
+      }
+      return { ...prev, name: defaultName };
+    });
+  }, [selectedProject, taskNameEdited]);
 
   // 当选中项目变化时，初始化语言覆盖为项目的编程语言（仅在未设置时）
   useEffect(() => {
@@ -436,6 +470,22 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
               </TabsList>
 
               <TabsContent value="basic" className="space-y-4 mt-6">
+                <div className="space-y-2">
+                  <Label htmlFor="task_name">任务名称 *</Label>
+                  <Input
+                    id="task_name"
+                    value={taskForm.name || ""}
+                    onChange={(e) => {
+                      setTaskNameEdited(true);
+                      setTaskForm({ ...taskForm, name: e.target.value });
+                    }}
+                    placeholder={buildAuditTaskName(selectedProject.name)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    将显示在任务列表中，建议包含项目背景和时间信息
+                  </p>
+                </div>
+
                 {/* ZIP项目文件上传 */}
                 {(!selectedProject.repository_url || selectedProject.repository_url.trim() === '') && (
                   <Card className="bg-amber-50 border-amber-200">
@@ -823,7 +873,7 @@ export default function CreateTaskDialog({ open, onOpenChange, onTaskCreated, pr
             </Button>
             <Button 
               onClick={handleCreateTask} 
-              disabled={!taskForm.project_id || creating}
+              disabled={!taskForm.project_id || !taskForm.name?.trim() || creating}
               className="btn-primary"
             >
               {creating ? (

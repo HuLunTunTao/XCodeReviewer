@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS project_members (
 CREATE TABLE IF NOT EXISTS audit_tasks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL DEFAULT '未命名审计任务',
     task_type VARCHAR(20) DEFAULT 'repository' CHECK (task_type IN ('repository', 'instant')),
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'completed', 'failed')),
     branch_name VARCHAR(100),

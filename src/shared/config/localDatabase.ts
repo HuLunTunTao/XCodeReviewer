@@ -457,6 +457,7 @@ class LocalDatabase {
     const newTask: AuditTask = {
       id: this.generateId(),
       project_id: taskData.project_id,
+      name: taskData.name || '未命名审计任务',
       task_type: taskData.task_type,
       status: 'pending',
       branch_name: taskData.branch_name || undefined,
@@ -496,6 +497,16 @@ class LocalDatabase {
     
     await this.put(STORES.AUDIT_TASKS, updated);
     return this.getAuditTaskById(id) as Promise<AuditTask>;
+  }
+
+  async deleteAuditTask(id: string): Promise<void> {
+    const existing = await this.getById<AuditTask>(STORES.AUDIT_TASKS, id);
+    if (!existing) throw new Error('Audit task not found');
+
+    // 删除关联的问题后再删除任务
+    const relatedIssues = await this.getByIndex<AuditIssue>(STORES.AUDIT_ISSUES, 'task_id', id);
+    await Promise.all(relatedIssues.map(issue => this.deleteRecord(STORES.AUDIT_ISSUES, issue.id)));
+    await this.deleteRecord(STORES.AUDIT_TASKS, id);
   }
 
   // ==================== AuditIssue 相关方法 ====================

@@ -72,6 +72,7 @@ async function gitlabApi<T>(url: string, token?: string): Promise<T> {
 
 export async function runRepositoryAudit(params: {
   projectId: string;
+  taskName: string;
   repoUrl: string;
   branch?: string;
   exclude?: string[];
@@ -93,6 +94,7 @@ export async function runRepositoryAudit(params: {
   const scanConfig = params.scanConfig || {};
   const task = await api.createAuditTask({
     project_id: params.projectId,
+    name: params.taskName || '未命名审计任务',
     task_type: "repository",
     branch_name: branch,
     exclude_patterns: excludes,

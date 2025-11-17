@@ -447,6 +447,7 @@ export const api = {
       .from('audit_tasks')
       .insert([{ 
         project_id: task.project_id,
+        name: task.name || '未命名审计任务',
         task_type: task.task_type,
         branch_name: task.branch_name || null,
         exclude_patterns: JSON.stringify(task.exclude_patterns || []),
@@ -463,6 +464,21 @@ export const api = {
     
     if (error) throw error;
     return Array.isArray(data) && data.length > 0 ? data[0] : {} as AuditTask;
+  },
+
+  async deleteAuditTask(id: string): Promise<void> {
+    if (isLocalMode) {
+      return localDB.deleteAuditTask(id);
+    }
+    
+    if (!supabase) throw new Error('Database not available');
+    
+    const { error } = await supabase
+      .from('audit_tasks')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
   },
 
   async updateAuditTask(id: string, updates: Partial<AuditTask>): Promise<AuditTask> {

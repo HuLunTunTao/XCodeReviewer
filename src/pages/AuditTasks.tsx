@@ -19,6 +19,8 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import CreateTaskDialog from "@/components/audit/CreateTaskDialog";
 import { calculateTaskProgress } from "@/shared/utils/utils";
+import { AuditTaskActions } from "@/components/audit/AuditTaskActions";
+import { getAuditTaskDisplayName } from "@/shared/utils/taskName";
 
 export default function AuditTasks() {
   const [tasks, setTasks] = useState<AuditTask[]>([]);
@@ -82,6 +84,14 @@ export default function AuditTasks() {
     }
   };
 
+  const handleTaskRenamed = (updatedTask: AuditTask) => {
+    setTasks((prev) => prev.map((task) => (task.id === updatedTask.id ? updatedTask : task)));
+  };
+
+  const handleTaskDeleted = (taskId: string) => {
+    setTasks((prev) => prev.filter((task) => task.id !== taskId));
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800';
@@ -112,9 +122,12 @@ export default function AuditTasks() {
     });
   };
 
+  const keyword = searchTerm.trim().toLowerCase();
   const filteredTasks = tasks.filter(task => {
-    const matchesSearch = task.project?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         task.task_type.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !keyword ||
+      getAuditTaskDisplayName(task).toLowerCase().includes(keyword) ||
+      (task.project?.name || '').toLowerCase().includes(keyword) ||
+      task.task_type.toLowerCase().includes(keyword);
     const matchesStatus = statusFilter === "all" || task.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -253,8 +266,8 @@ export default function AuditTasks() {
           {filteredTasks.map((task) => (
             <Card key={task.id} className="card-modern group">
               <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center space-x-4">
+                <div className="flex items-start justify-between mb-6 gap-4">
+                  <div className="flex items-start space-x-4">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                       task.status === 'completed' ? 'bg-emerald-100 text-emerald-600' :
                       task.status === 'running' ? 'bg-red-50 text-red-600' :
@@ -263,20 +276,30 @@ export default function AuditTasks() {
                       {getStatusIcon(task.status)}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-lg text-gray-900 group-hover:text-primary transition-colors">
-                        {task.project?.name || '未知项目'}
+                      <h3 className="text-2xl font-semibold text-gray-900 group-hover:text-primary transition-colors">
+                        {getAuditTaskDisplayName(task)}
                       </h3>
                       <p className="text-sm text-gray-500">
-                        {task.task_type === 'repository' ? '仓库审计任务' : '即时分析任务'}
+                        {task.project?.name || '未知项目'} · {task.task_type === 'repository' ? '仓库审计任务' : '即时分析任务'}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        创建于 {formatDate(task.created_at)}
                       </p>
                     </div>
                   </div>
-                  <Badge className={getStatusColor(task.status)}>
-                    {task.status === 'completed' ? '已完成' : 
-                     task.status === 'running' ? '运行中' : 
-                     task.status === 'failed' ? '失败' :
-                     task.status === 'cancelled' ? '已取消' : '等待中'}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className={getStatusColor(task.status)}>
+                      {task.status === 'completed' ? '已完成' : 
+                       task.status === 'running' ? '运行中' : 
+                       task.status === 'failed' ? '失败' :
+                       task.status === 'cancelled' ? '已取消' : '等待中'}
+                    </Badge>
+                    <AuditTaskActions
+                      task={task}
+                      onRenamed={handleTaskRenamed}
+                      onDeleted={handleTaskDeleted}
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

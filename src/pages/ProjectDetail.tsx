@@ -30,7 +30,9 @@ import { loadZipFile } from "@/shared/utils/zipStorage";
 import { toast } from "sonner";
 import CreateTaskDialog from "@/components/audit/CreateTaskDialog";
 import TerminalProgressDialog from "@/components/audit/TerminalProgressDialog";
+import { AuditTaskActions } from "@/components/audit/AuditTaskActions";
 import { SUPPORTED_LANGUAGES } from "@/shared/constants";
+import { buildAuditTaskName, getAuditTaskDisplayName } from "@/shared/utils/taskName";
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -100,6 +102,7 @@ export default function ProjectDetail() {
 
   const handleRunAudit = async () => {
     if (!project || !id) return;
+    const generatedTaskName = buildAuditTaskName(project.name);
     
     // 检查是否有仓库地址
     if (project.repository_url) {
@@ -109,6 +112,7 @@ export default function ProjectDetail() {
         console.log('开始启动仓库审计任务...');
         const taskId = await runRepositoryAudit({
           projectId: id,
+          taskName: generatedTaskName,
           repoUrl: project.repository_url,
           branch: project.default_branch || 'main',
           githubToken: undefined,
@@ -142,6 +146,7 @@ export default function ProjectDetail() {
             // 启动ZIP文件审计
             const taskId = await scanZipFile({
               projectId: id,
+              taskName: generatedTaskName,
               zipFile: file,
               excludePatterns: ['node_modules/**', '.git/**', 'dist/**', 'build/**'],
               createdBy: 'local-user'
@@ -256,6 +261,14 @@ export default function ProjectDetail() {
       duration: 5000
     });
     loadProjectData(); // 重新加载项目数据以显示新任务
+  };
+
+  const handleTaskRenamed = (updatedTask: AuditTask) => {
+    setTasks((prev) => prev.map((task) => (task.id === updatedTask.id ? updatedTask : task)));
+  };
+
+  const handleTaskDeleted = (taskId: string) => {
+    setTasks((prev) => prev.filter((task) => task.id !== taskId));
   };
 
   if (loading) {
@@ -509,23 +522,33 @@ export default function ProjectDetail() {
               {tasks.map((task) => (
                 <Card key={task.id}>
                   <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-3">
+                    <div className="flex items-start justify-between mb-4 gap-4">
+                      <div className="flex items-start space-x-3">
                         {getStatusIcon(task.status)}
                         <div>
-                          <h4 className="font-medium">
-                            {task.task_type === 'repository' ? '仓库审计任务' : '即时分析任务'}
+                          <h4 className="text-xl font-semibold text-gray-900">
+                            {getAuditTaskDisplayName(task, project.name)}
                           </h4>
                           <p className="text-sm text-muted-foreground">
+                            {task.project?.name || project.name} · {task.task_type === 'repository' ? '仓库审计任务' : '即时分析任务'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
                             创建于 {formatDate(task.created_at)}
                           </p>
                         </div>
                       </div>
-                      <Badge className={getStatusColor(task.status)}>
-                        {task.status === 'completed' ? '已完成' : 
-                         task.status === 'running' ? '运行中' : 
-                         task.status === 'failed' ? '失败' : '等待中'}
-                      </Badge>
+                      <div className="flex items-center space-x-2">
+                        <Badge className={getStatusColor(task.status)}>
+                          {task.status === 'completed' ? '已完成' : 
+                           task.status === 'running' ? '运行中' : 
+                           task.status === 'failed' ? '失败' : '等待中'}
+                        </Badge>
+                        <AuditTaskActions
+                          task={task}
+                          onRenamed={handleTaskRenamed}
+                          onDeleted={handleTaskDeleted}
+                        />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
