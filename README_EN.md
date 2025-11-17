@@ -1,4 +1,25 @@
-# XCodeReviewer - Your Intelligent Code Audit Partner 🚀
+# XCodeReviewer - Your Intelligent Code Audit Partner 🚀 (HuLunTunTao_folk)
+
+This project is forked from [lintsinghua/XCodeReviewer](https://github.com/lintsinghua/XCodeReviewer), based on commit 30f670b.
+The following features and improvements have been added or modified:
+
+* Extended language support, including GDS, Dart, and C++ (both .cpp and .hpp).
+
+* Allow switching the project language temporarily when creating a review task.
+
+* Each review task now requires a task name at creation time.
+
+* Tags can be added to tasks upon creation to facilitate filtering and organization.
+
+* Added design-pattern–related review rules.
+
+* Users can provide additional prompt text temporarily for a single review run.
+
+* Updated theme color to blue, and replaced the logo with a new blue-themed version.
+
+* Temporary review tasks are now recorded, instead of being discarded.
+
+* Tasks can be filtered by tags, language, and date.
 
 <div style="width: 100%; max-width: 600px; margin: 0 auto;">
   <img src="public/images/logo.png" alt="XCodeReviewer Logo" style="width: 100%; height: auto; display: block; margin: 0 auto;">

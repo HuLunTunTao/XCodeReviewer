@@ -1,4 +1,20 @@
-# XCodeReviewer - 您的智能代码审计伙伴 🚀
+# XCodeReviewer - 您的智能代码审计伙伴 🚀 (HuLunTunTao_folk)
+
+这个项目folk自[lintsinghua的XCodeReviewer](https://github.com/lintsinghua/XCodeReviewer)
+
+在其Commit 30f670b基础上folk，添加了或修改了以下内容：
+* 扩充了对gds,dart,cpp(hpp)的支持
+* 支持在创建审计任务时临时修改项目语言
+* 每个任务在创建时需要添加任务名
+* 任务在创建时可以添加标签，方便筛选
+* 添加了对设计模式的审查
+* 支持用户临时添加额外的提示词
+* 修改主题色为蓝色，并修改Logo为一个蓝色logo
+* 临时审计任务记录会被记录
+* 可以根据标签、语言、日期筛选任务
+* 支持删除任务
+
+以下是项目原README.MD:
 
 <div style="width: 100%; max-width: 600px; margin: 0 auto;">
   <img src="public/images/logo.png" alt="XCodeReviewer Logo" style="width: 100%; height: auto; display: block; margin: 0 auto;">
