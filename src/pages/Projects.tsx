@@ -242,8 +242,10 @@ export default function Projects() {
   };
 
   const filteredProjects = projects.filter(project =>
-    project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    project.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    project.name !== '即时代码分析' && (
+      project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      project.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
   );
 
   const getRepositoryIcon = (type?: string) => {

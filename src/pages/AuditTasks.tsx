@@ -244,7 +244,10 @@ export default function AuditTasks() {
     const map = new Map<string, string>();
     tasks.forEach(task => {
       if (task.project?.id) {
-        map.set(task.project.id, task.project.name || '未命名项目');
+        const name = task.project.name || '未命名项目';
+        if (name !== '即时代码分析') {
+          map.set(task.project.id, name);
+        }
       }
     });
     return Array.from(map.entries())
@@ -319,7 +322,11 @@ export default function AuditTasks() {
       (task.project?.name || '').toLowerCase().includes(keyword) ||
       task.task_type.toLowerCase().includes(keyword);
     const matchesStatus = statusFilter === "all" || task.status === statusFilter;
-    const matchesProject = projectFilter === "all" || task.project?.id === projectFilter;
+    const matchesProject = (() => {
+      if (projectFilter === 'all') return true;
+      if (projectFilter === 'instant') return task.task_type === 'instant';
+      return task.project?.id === projectFilter && task.task_type !== 'instant';
+    })();
     const createdTime = new Date(task.created_at).getTime();
     const matchesStartDate = !startTimestamp || createdTime >= startTimestamp;
     const matchesEndDate = !endTimestamp || createdTime <= endTimestamp;
@@ -465,6 +472,8 @@ export default function AuditTasks() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部项目</SelectItem>
+                  <SelectItem value="instant">即时代码分析</SelectItem>
+                  <SelectItem value="__sep__" disabled>---</SelectItem>
                   {availableProjects.map(project => (
                     <SelectItem key={project.id} value={project.id}>
                       {project.name}
@@ -562,7 +571,7 @@ export default function AuditTasks() {
                         {getAuditTaskDisplayName(task)}
                       </h3>
                       <p className="text-sm text-gray-500">
-                        {task.project?.name || '未知项目'} · {task.task_type === 'repository' ? '仓库审计任务' : '即时分析任务'}
+                        {task.task_type === 'instant' ? '即时分析任务' : `${task.project?.name || '未知项目'} · 仓库审计任务`}
                       </p>
                       {(taskLanguages.length > 0 || taskTags.length > 0) && (
                         <div className="mt-3 flex flex-wrap gap-2">
@@ -659,7 +668,7 @@ export default function AuditTasks() {
                         查看详情
                       </Button>
                     </Link>
-                    {task.project && (
+                    {task.project && task.task_type !== 'instant' && (
                       <Link to={`/projects/${task.project.id}`}>
                         <Button size="sm" className="btn-primary">
                           查看项目
