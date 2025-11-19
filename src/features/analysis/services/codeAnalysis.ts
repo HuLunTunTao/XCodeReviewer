@@ -278,7 +278,7 @@ Domain hints: ${hintText}
 ` : `
 Extra hints: ${userHints}
 `) : '';
-    const userPrompt = isChineseOutput
+    let userPrompt = isChineseOutput
       ? `编程语言: ${language}
 
 ⚠️ 代码已标注行号（格式：行号| 代码内容），请根据行号准确填写 line 字段！${extra}${extraUser}
@@ -293,6 +293,26 @@ ${codeWithLineNumbers}`
 Please analyze the following code:
 
 ${codeWithLineNumbers}`;
+
+    if (options?.checkDesignPatterns !== false) {
+      const designChecklistZh = `
+
+【设计/OO 审查强化要求】
+1. 系统性评估 GOF23 设计模式与 OO 原则（SOLID、DRY、KISS、YAGNI）。
+2. 标注以下情形：适用但未使用的模式、模式误用、过度设计/过度简化、职责泄漏与耦合过高。
+3. 每个设计相关发现必须：给出准确行号、代码片段（code_snippet）、并在 xai.what/why/how 中说明问题、原因与重构方案。
+4. 将设计相关问题的 issue.type 统一使用 "maintainability" 或 "style"，title 中包含具体模式/原则名称（如 Strategy、Factory、Observer、Single Responsibility、Open/Closed）。
+5. 对每类原则至少进行一次覆盖性评估；若未发现设计问题，明确说明“未发现设计模式/OO原则违反”。`;
+      const designChecklistEn = `
+
+[Design/OO Review Requirements]
+1. Systematically evaluate GOF23 patterns and OO principles (SOLID, DRY, KISS, YAGNI).
+2. Identify: applicable-but-missing patterns, pattern misuse, over-engineering/under-engineering, responsibility leakage, excessive coupling.
+3. For each design finding: provide exact line number, code_snippet, and fill xai.what/why/how with problem, rationale, and refactor plan.
+4. Use issue.type "maintainability" or "style" for design issues; include concrete pattern/principle names in title (e.g., Strategy, Factory, Observer, Single Responsibility, Open/Closed).
+5. Ensure at least one coverage assessment per principle; if no design issues found, explicitly state "No violations of design patterns/OO principles found".`;
+      userPrompt += isChineseOutput ? designChecklistZh : designChecklistEn;
+    }
 
     let text = '';
     try {
