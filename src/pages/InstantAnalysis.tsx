@@ -65,6 +65,8 @@ export default function InstantAnalysis() {
   const [taskName, setTaskName] = useState(() => buildAuditTaskName("即时分析"));
   const [analysisTags, setAnalysisTags] = useState<string[]>([]);
   const [resultTags, setResultTags] = useState<string[]>([]);
+  const [customHints, setCustomHints] = useState("");
+  const [checkDesign, setCheckDesign] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loadingCardRef = useRef<HTMLDivElement>(null);
 
@@ -246,7 +248,11 @@ class UserManager {
       const startTime = Date.now();
 
       const tagsSnapshot = [...analysisTags];
-      const analysisResult = await CodeAnalysisEngine.analyzeCode(code, language);
+      const effectiveHints = `${customHints}${checkDesign ? '' : '\n无需检查设计模式与面向对象原则'}`.trim();
+      const analysisResult = await CodeAnalysisEngine.analyzeCode(code, language, {
+        extraHints: effectiveHints,
+        checkDesignPatterns: checkDesign
+      });
       const endTime = Date.now();
       const duration = (endTime - startTime) / 1000;
 
@@ -407,7 +413,7 @@ class UserManager {
         task_type: "instant",
         branch_name: undefined,
         exclude_patterns: [],
-        scan_config: { language, source: "instant" },
+        scan_config: { language, source: "instant", extra_hints: customHints, check_design_patterns: checkDesign },
         created_by: user?.id || "local-user",
         tags
       });
@@ -460,7 +466,7 @@ class UserManager {
       status: 'completed',
       branch_name: undefined,
       exclude_patterns: '[]',
-      scan_config: JSON.stringify({ language }),
+      scan_config: JSON.stringify({ language, extra_hints: customHints, check_design_patterns: checkDesign }),
       tags: resultTags,
       total_files: 1,
       scanned_files: 1,
@@ -778,6 +784,27 @@ class UserManager {
                 disabled={analyzing}
               />
               <p className="text-xs text-gray-500">标签将用于任务筛选，可输入多个</p>
+              <div className="space-y-2 pt-4">
+                <Label htmlFor="instant-custom-hints">自定义提示词</Label>
+                <Textarea
+                  id="instant-custom-hints"
+                  value={customHints}
+                  onChange={(e) => setCustomHints(e.target.value)}
+                  placeholder="例如：重点检查安全注入、并发访问、资源释放等"
+                  disabled={analyzing}
+                  className="min-h-[80px] text-sm"
+                />
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    id="instant-check-design"
+                    type="checkbox"
+                    checked={checkDesign}
+                    onChange={(e) => setCheckDesign(e.target.checked)}
+                    disabled={analyzing}
+                  />
+                  <Label htmlFor="instant-check-design">是否检查 GOF23 与 OO 原则</Label>
+                </div>
+              </div>
             </div>
           </div>
 
