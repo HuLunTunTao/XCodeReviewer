@@ -8,6 +8,7 @@ export const SUPPORTED_LANGUAGES = [
   'java',
   'go',
   'rust',
+  'c',
   'cpp',
   'csharp',
   'php',

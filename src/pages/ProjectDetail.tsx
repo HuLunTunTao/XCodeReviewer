@@ -125,6 +125,12 @@ export default function ProjectDetail() {
           taskName,
           repoUrl: project.repository_url,
           branch: project.default_branch || 'main',
+          scanConfig: {
+            include_tests: true,
+            include_docs: false,
+            analysis_depth: 'standard',
+            check_design_patterns: true
+          },
           githubToken: undefined,
           gitlabToken: undefined,
           createdBy: undefined,

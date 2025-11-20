@@ -32,6 +32,7 @@ const languageLabelMap: Record<string, string> = {
   java: "Java",
   go: "Go",
   rust: "Rust",
+  c: "C",
   cpp: "C++",
   csharp: "C#",
   php: "PHP",

@@ -77,6 +77,7 @@ export default function Projects() {
       'java': 'Java',
       'go': 'Go',
       'rust': 'Rust',
+      'c': 'C',
       'cpp': 'C++',
       'csharp': 'C#',
       'php': 'PHP',

@@ -71,6 +71,7 @@ export default function InstantAnalysis() {
   const loadingCardRef = useRef<HTMLDivElement>(null);
 
   const supportedLanguages = CodeAnalysisEngine.getSupportedLanguages();
+  const [lastUploadedFileName, setLastUploadedFileName] = useState<string | null>(null);
 
   // 监听analyzing状态变化，自动滚动到加载卡片
   useEffect(() => {
@@ -219,14 +220,88 @@ class UserManager {
 }`
   };
 
+  const detectLanguageFromExt = (ext?: string, content?: string): string | null => {
+    if (!ext) return null;
+    switch (ext) {
+      case 'js':
+      case 'jsx': return 'javascript';
+      case 'ts':
+      case 'tsx': return 'typescript';
+      case 'py': return 'python';
+      case 'java': return 'java';
+      case 'go': return 'go';
+      case 'rs': return 'rust';
+      case 'cpp':
+      case 'cc':
+      case 'cxx':
+      case 'hpp':
+      case 'hxx':
+      case 'hh':
+      case 'ipp':
+      case 'tpp': return 'cpp';
+      case 'c': return 'c';
+      case 'cs': return 'csharp';
+      case 'php': return 'php';
+      case 'rb': return 'ruby';
+      case 'swift': return 'swift';
+      case 'kt': return 'kotlin';
+      case 'gd': return 'gdscript';
+      case 'm': return 'objectivec';
+      case 'mm': return 'objectivecpp';
+      case 'dart': return 'dart';
+      case 'xml': return 'xml';
+      case 'plist': return 'plist';
+      case 'gradle': return 'gradle';
+      case 'cmake': return 'cmake';
+      case 'h': {
+        const src = (content || '').toLowerCase();
+        if (/\bclass\b|\btemplate\b|std::|namespace\s+\w+/.test(src)) return 'cpp';
+        return 'c';
+      }
+      default: return null;
+    }
+  };
+
+  const autoDetectLanguage = (content: string): string | null => {
+    const ext = lastUploadedFileName?.split('.').pop()?.toLowerCase();
+    const byExt = detectLanguageFromExt(ext, content);
+    if (byExt) return byExt;
+    const src = content.toLowerCase();
+    if (/^\s*#include\b/m.test(src)) {
+      if (/std::|\btemplate\b|\bclass\b/.test(src)) return 'cpp';
+      return 'c';
+    }
+    if (/^\s*def\s+\w+\(/m.test(src)) return 'python';
+    if (/^\s*public\s+class\s+\w+\b/m.test(src)) return 'java';
+    if (/^\s*package\s+\w+(\.\w+)*;/.test(src)) return 'java';
+    if (/^\s*using\s+System;/m.test(src)) return 'csharp';
+    if (/function\s+\w+\(|=>\s*\(/.test(src)) return 'javascript';
+    if (/import\s+.*from\s+['"]/m.test(src)) return 'typescript';
+    if (/fn\s+\w+\(/.test(src)) return 'rust';
+    if (/func\s+\w+\(/.test(src)) return 'go';
+    if (/class\s+\w+\s*\{/.test(src)) return 'kotlin';
+    if (/class\s+\w+:/.test(src)) return 'swift';
+    return null;
+  };
+
   const handleAnalyze = async () => {
     if (!code.trim()) {
       toast.error("请输入要分析的代码");
       return;
     }
-    if (!language) {
+    let langToUse = language;
+    if (!langToUse) {
       toast.error("请选择编程语言");
       return;
+    }
+    if (langToUse === 'auto') {
+      const detected = autoDetectLanguage(code);
+      if (!detected) {
+        toast.error("无法自动识别语言，请手动选择或上传带后缀的文件");
+        return;
+      }
+      langToUse = detected;
+      setLanguage(detected);
     }
     const trimmedTaskName = taskName.trim();
     if (!trimmedTaskName) {
@@ -249,10 +324,17 @@ class UserManager {
 
       const tagsSnapshot = [...analysisTags];
       const effectiveHints = `${customHints}${checkDesign ? '' : '\n无需检查设计模式与面向对象原则'}`.trim();
-      const analysisResult = await CodeAnalysisEngine.analyzeCode(code, language, {
+      let analysisResult = await CodeAnalysisEngine.analyzeCode(code, langToUse, {
         extraHints: effectiveHints,
         checkDesignPatterns: checkDesign
       });
+      if ((analysisResult.issues?.length || 0) === 0 && (analysisResult.quality_score || 0) >= 85) {
+        const stricterHints = `${effectiveHints}\n请更严格地识别至少3个可维护性或代码风格改进点，并提供行号、片段与xai解释。`;
+        analysisResult = await CodeAnalysisEngine.analyzeCode(code, langToUse, {
+          extraHints: stricterHints,
+          checkDesignPatterns: checkDesign
+        });
+      }
       const endTime = Date.now();
       const duration = (endTime - startTime) / 1000;
 
@@ -297,34 +379,13 @@ class UserManager {
       setCode(content);
 
       // 根据文件扩展名自动选择语言
-      const extension = file.name.split('.').pop()?.toLowerCase();
-      const languageMap: Record<string, string> = {
-        'js': 'javascript',
-        'jsx': 'javascript',
-        'ts': 'typescript',
-        'tsx': 'typescript',
-        'py': 'python',
-        'java': 'java',
-        'go': 'go',
-        'rs': 'rust',
-        'cpp': 'cpp',
-        'c': 'cpp',
-        'cc': 'cpp',
-        'h': 'cpp',
-        'hh': 'cpp',
-        'cs': 'csharp',
-        'php': 'php',
-        'rb': 'ruby',
-        'swift': 'swift',
-        'kt': 'kotlin'
+          setLastUploadedFileName(file.name);
+          const extension = file.name.split('.').pop()?.toLowerCase();
+          const detected = detectLanguageFromExt(extension, content);
+          if (detected) setLanguage(detected);
+        };
+        reader.readAsText(file);
       };
-
-      if (extension && languageMap[extension]) {
-        setLanguage(languageMap[extension]);
-      }
-    };
-    reader.readAsText(file);
-  };
 
   const loadExampleCode = (lang: string) => {
     const example = exampleCodes[lang as keyof typeof exampleCodes];
@@ -684,6 +745,7 @@ class UserManager {
                   <SelectValue placeholder="选择编程语言" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="auto">自动识别</SelectItem>
                   {supportedLanguages.map((lang) => (
                     <SelectItem key={lang} value={lang}>
                       {lang.charAt(0).toUpperCase() + lang.slice(1)}
@@ -966,7 +1028,7 @@ class UserManager {
             <CardContent>
               {result.issues.length > 0 ? (
                 <Tabs defaultValue="all" className="w-full">
-                  <TabsList className="grid w-full grid-cols-4 mb-4">
+                  <TabsList className="grid w-full grid-cols-5 mb-4">
                     <TabsTrigger value="all" className="text-xs">
                       全部 ({result.issues.length})
                     </TabsTrigger>
@@ -978,6 +1040,9 @@ class UserManager {
                     </TabsTrigger>
                     <TabsTrigger value="medium" className="text-xs">
                       中等 ({result.issues.filter(i => i.severity === 'medium').length})
+                    </TabsTrigger>
+                    <TabsTrigger value="low" className="text-xs">
+                      低 ({result.issues.filter(i => i.severity === 'low').length})
                     </TabsTrigger>
                   </TabsList>
 
@@ -1002,6 +1067,18 @@ class UserManager {
                       )}
                     </TabsContent>
                   ))}
+
+                  <TabsContent value="low" className="space-y-3 mt-4">
+                    {result.issues.filter(issue => issue.severity === 'low').length > 0 ? (
+                      result.issues.filter(issue => issue.severity === 'low').map((issue, index) => renderIssue(issue, index))
+                    ) : (
+                      <div className="text-center py-12">
+                        <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">没有发现低优先级问题</h3>
+                        <p className="text-gray-500">代码在此级别的检查中表现良好</p>
+                      </div>
+                    )}
+                  </TabsContent>
                 </Tabs>
 
 
