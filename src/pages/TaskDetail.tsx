@@ -107,12 +107,12 @@ function IssuesList({ issues, onToggleResolve }: { issues: AuditIssue[]; onToggl
             )}
           </div>
         </div>
-        <Badge className={`${getSeverityColor(issue.severity)} px-2 py-1 text-xs font-medium`}>
-          {issue.severity === 'critical' ? '严重' :
-            issue.severity === 'high' ? '高' :
-              issue.severity === 'medium' ? '中等' : '低'}
-        </Badge>
-        <div className="ml-3 flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          <Badge className={`${getSeverityColor(issue.severity)} px-2 py-1 text-xs font-medium`}>
+            {issue.severity === 'critical' ? '严重' :
+              issue.severity === 'high' ? '高' :
+                issue.severity === 'medium' ? '中等' : '低'}
+          </Badge>
           <Badge variant={issue.status === 'resolved' ? 'default' : 'secondary'} className="text-xs">
             {issue.status === 'resolved' ? '已解决' : '未解决'}
           </Badge>
