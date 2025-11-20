@@ -84,6 +84,18 @@ export default function ProjectDetail() {
     }
   }, [id]);
 
+  useEffect(() => {
+    if (!project) return;
+    setEditForm({
+      name: project.name,
+      description: project.description || "",
+      repository_url: project.repository_url || "",
+      repository_type: project.repository_type || "github",
+      default_branch: project.default_branch || "main",
+      programming_languages: project.programming_languages ? JSON.parse(project.programming_languages) : []
+    });
+  }, [project?.id]);
+
   const loadProjectData = async () => {
     if (!id) return;
     
@@ -640,10 +652,104 @@ export default function ProjectDetail() {
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-6">
-          <div className="text-center py-12">
-            <Edit className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-muted-foreground mb-2">项目编辑</h3>
-            <p className="text-sm text-muted-foreground">此功能正在开发中</p>
+          <div className="space-y-6 py-4">
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-name">项目名称 *</Label>
+                <Input
+                  id="edit-name"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  placeholder="输入项目名称"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-description">项目描述</Label>
+                <Textarea
+                  id="edit-description"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  placeholder="输入项目描述"
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900">仓库信息</h3>
+              <div>
+                <Label htmlFor="edit-repo-url">仓库地址</Label>
+                <Input
+                  id="edit-repo-url"
+                  value={editForm.repository_url}
+                  onChange={(e) => setEditForm({ ...editForm, repository_url: e.target.value })}
+                  placeholder="https://github.com/username/repo"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-repo-type">仓库类型</Label>
+                  <Select
+                    value={editForm.repository_type}
+                    onValueChange={(value: any) => setEditForm({ ...editForm, repository_type: value })}
+                  >
+                    <SelectTrigger id="edit-repo-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="github">GitHub</SelectItem>
+                      <SelectItem value="gitlab">GitLab</SelectItem>
+                      <SelectItem value="other">其他</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-branch">默认分支</Label>
+                  <Input
+                    id="edit-branch"
+                    value={editForm.default_branch}
+                    onChange={(e) => setEditForm({ ...editForm, default_branch: e.target.value })}
+                    placeholder="main"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900">编程语言</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {supportedLanguages.map((lang) => (
+                  <div
+                    key={lang}
+                    className={`flex items-center space-x-2 p-3 rounded-lg border cursor-pointer transition-all ${
+                      editForm.programming_languages?.includes(lang)
+                        ? 'border-primary bg-red-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => handleToggleLanguage(lang)}
+                  >
+                    <div
+                      className={`w-4 h-4 rounded border flex items-center justify-center ${
+                        editForm.programming_languages?.includes(lang)
+                          ? 'bg-primary border-primary'
+                          : 'border-gray-300'
+                      }`}
+                    >
+                      {editForm.programming_languages?.includes(lang) && (
+                        <CheckCircle className="w-3 h-3 text-white" />
+                      )}
+                    </div>
+                    <span className="text-sm font-medium">{lang}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <Button variant="outline" onClick={() => loadProjectData()}>取消</Button>
+              <Button onClick={handleSaveSettings}>保存修改</Button>
+            </div>
           </div>
         </TabsContent>
       </Tabs>
