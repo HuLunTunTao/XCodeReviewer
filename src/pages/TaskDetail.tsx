@@ -54,7 +54,7 @@ function parseAIExplanation(aiExplanation: string) {
 }
 
 // 问题列表组件
-function IssuesList({ issues }: { issues: AuditIssue[] }) {
+function IssuesList({ issues, onToggleResolve }: { issues: AuditIssue[]; onToggleResolve: (issue: AuditIssue) => void }) {
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'critical': return 'bg-red-100 text-red-800 border-red-200';
@@ -112,6 +112,14 @@ function IssuesList({ issues }: { issues: AuditIssue[] }) {
             issue.severity === 'high' ? '高' :
               issue.severity === 'medium' ? '中等' : '低'}
         </Badge>
+        <div className="ml-3 flex items-center gap-2">
+          <Badge variant={issue.status === 'resolved' ? 'default' : 'secondary'} className="text-xs">
+            {issue.status === 'resolved' ? '已解决' : '未解决'}
+          </Badge>
+          <Button size="sm" variant="outline" onClick={() => onToggleResolve(issue)} className="h-7 px-2 text-xs">
+            {issue.status === 'resolved' ? '标记未解决' : '标记已解决'}
+          </Button>
+        </div>
       </div>
 
       {issue.description && (
@@ -746,7 +754,26 @@ export default function TaskDetail() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <IssuesList issues={issues} />
+            <IssuesList 
+              issues={issues} 
+              onToggleResolve={async (issue) => {
+                try {
+                  const now = new Date().toISOString();
+                  const targetStatus = issue.status === 'resolved' ? 'open' : 'resolved';
+                  await api.updateAuditIssue(issue.id, {
+                    status: targetStatus,
+                    resolved_by: targetStatus === 'resolved' ? 'local-user' : undefined,
+                    resolved_at: targetStatus === 'resolved' ? now : undefined
+                  });
+                  const updated = await api.getAuditIssues(id!);
+                  setIssues(updated);
+                  toast.success(targetStatus === 'resolved' ? '问题已标记为已解决' : '问题已标记为未解决');
+                } catch (e) {
+                  console.error('更新问题状态失败:', e);
+                  toast.error('更新问题状态失败');
+                }
+              }}
+            />
           </CardContent>
         </Card>
       )}
