@@ -144,13 +144,36 @@ export default function AuditTasks() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [languageFilter, setLanguageFilter] = useState<string>("all");
+  const [unresolvedFilter, setUnresolvedFilter] = useState<string>("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [tagFilters, setTagFilters] = useState<string[]>([]);
+  const [issueCounts, setIssueCounts] = useState<Record<string, { total: number; resolved: number; unresolved: number }>>({});
 
   useEffect(() => {
     loadTasks();
   }, []);
+
+  useEffect(() => {
+    const loadCounts = async () => {
+      try {
+        const entries = await Promise.all(tasks.map(async (t) => {
+          try {
+            const issues = await api.getAuditIssues(t.id);
+            const total = issues.length;
+            const resolved = issues.filter(i => i.status === 'resolved').length;
+            return [t.id, { total, resolved, unresolved: total - resolved }] as const;
+          } catch {
+            return [t.id, { total: 0, resolved: 0, unresolved: 0 }] as const;
+          }
+        }));
+        setIssueCounts(Object.fromEntries(entries));
+      } catch (e) {
+        console.error('加载问题统计失败:', e);
+      }
+    };
+    if (tasks.length > 0) loadCounts();
+  }, [tasks.map(t => t.id + ':' + t.issues_count).join(',')]);
 
   // 静默更新活动任务的进度（不触发loading状态）
   useEffect(() => {
@@ -294,6 +317,7 @@ export default function AuditTasks() {
     setStatusFilter("all");
     setProjectFilter("all");
     setLanguageFilter("all");
+    setUnresolvedFilter("all");
     setStartDate("");
     setEndDate("");
     setTagFilters([]);
@@ -305,11 +329,12 @@ export default function AuditTasks() {
       statusFilter !== "all" ||
       projectFilter !== "all" ||
       languageFilter !== "all" ||
+      unresolvedFilter !== "all" ||
       startDate ||
       endDate ||
       tagFilters.length > 0
     );
-  }, [searchTerm, statusFilter, projectFilter, languageFilter, startDate, endDate, tagFilters]);
+  }, [searchTerm, statusFilter, projectFilter, languageFilter, unresolvedFilter, startDate, endDate, tagFilters]);
 
   const keyword = searchTerm.trim().toLowerCase();
   const parsedStart = startDate ? new Date(`${startDate}T00:00:00`).getTime() : NaN;
@@ -335,7 +360,9 @@ export default function AuditTasks() {
     const matchesLanguage = languageFilter === "all" || languages.includes(languageFilter);
     const taskTagValues = getTaskTags(task).map(tag => tag.toLowerCase());
     const matchesTags = normalizedTagFilters.length === 0 || normalizedTagFilters.every(tag => taskTagValues.includes(tag));
-    return matchesSearch && matchesStatus && matchesProject && matchesStartDate && matchesEndDate && matchesLanguage && matchesTags;
+    const counts = issueCounts[task.id];
+    const matchesUnresolved = unresolvedFilter === 'all' ? true : unresolvedFilter === 'has_unresolved' ? ((counts?.unresolved || 0) > 0) : ((counts?.unresolved || 0) === 0);
+    return matchesSearch && matchesStatus && matchesProject && matchesStartDate && matchesEndDate && matchesLanguage && matchesTags && matchesUnresolved;
   });
 
   if (loading) {
@@ -500,6 +527,19 @@ export default function AuditTasks() {
               </Select>
             </div>
             <div className="space-y-2">
+              <Label>未解决问题</Label>
+              <Select value={unresolvedFilter} onValueChange={setUnresolvedFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="全部" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部</SelectItem>
+                  <SelectItem value="has_unresolved">有未解决</SelectItem>
+                  <SelectItem value="all_resolved">全已解决</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>开始日期</Label>
               <Input
                 type="date"
@@ -589,7 +629,7 @@ export default function AuditTasks() {
                         </div>
                       )}
                       <p className="text-xs text-gray-400 mt-1">
-                        创建于 {formatDate(task.created_at)}
+                        创建于 {formatDate(task.created_at)} · 已解决 {issueCounts[task.id]?.resolved || 0}/{issueCounts[task.id]?.total || 0}
                       </p>
                     </div>
                   </div>
@@ -605,6 +645,25 @@ export default function AuditTasks() {
                       onRenamed={handleTaskRenamed}
                       onDeleted={handleTaskDeleted}
                     />
+                    {issueCounts[task.id]?.unresolved ? (
+                      <Button size="sm" variant="outline" onClick={async () => {
+                        try {
+                          const issues = await api.getAuditIssues(task.id);
+                          const toResolve = issues.filter(i => i.status !== 'resolved');
+                          await Promise.all(toResolve.map(i => api.updateAuditIssue(i.id, { status: 'resolved', resolved_by: 'local-user', resolved_at: new Date().toISOString() })));
+                          const updated = await api.getAuditIssues(task.id);
+                          const total = updated.length;
+                          const resolved = updated.filter(i => i.status === 'resolved').length;
+                          setIssueCounts(prev => ({ ...prev, [task.id]: { total, resolved, unresolved: total - resolved } }));
+                          toast.success('已将本次任务所有问题标记为已解决');
+                        } catch (e) {
+                          console.error('批量标记问题失败:', e);
+                          toast.error('批量标记问题失败');
+                        }
+                      }}>
+                        一键标记已解决
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
 
