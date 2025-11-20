@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { api } from "@/shared/config/database";
 import { runRepositoryAudit, scanZipFile } from "@/features/projects/services";
-import type { Project, AuditTask, CreateProjectForm } from "@/shared/types";
+import type { Project, AuditTask, CreateProjectForm, AuditIssue } from "@/shared/types";
 import { loadZipFile } from "@/shared/utils/zipStorage";
 import { toast } from "sonner";
 import CreateTaskDialog from "@/components/audit/CreateTaskDialog";
@@ -636,11 +636,7 @@ export default function ProjectDetail() {
         </TabsContent>
 
         <TabsContent value="issues" className="space-y-6">
-          <div className="text-center py-12">
-            <AlertTriangle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-muted-foreground mb-2">问题管理</h3>
-            <p className="text-sm text-muted-foreground">此功能正在开发中</p>
-          </div>
+          <ProjectIssues projectId={id!} tasks={tasks} />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-6">
@@ -825,6 +821,132 @@ export default function ProjectDetail() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function ProjectIssues({ projectId, tasks }: { projectId: string; tasks: AuditTask[] }) {
+  const [loading, setLoading] = useState(false);
+  const [issuesByTask, setIssuesByTask] = useState<Record<string, AuditIssue[]>>({});
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+
+  useEffect(() => {
+    const loadIssues = async () => {
+      try {
+        setLoading(true);
+        const entries = await Promise.all(tasks.map(async (t) => {
+          try {
+            const issues = await api.getAuditIssues(t.id);
+            return [t.id, issues] as const;
+          } catch {
+            return [t.id, []] as const;
+          }
+        }));
+        setIssuesByTask(Object.fromEntries(entries));
+      } catch (e) {
+        console.error('加载项目问题失败:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (tasks.length > 0) loadIssues();
+  }, [projectId, tasks.map(t => t.id + ':' + t.issues_count).join(',')]);
+
+  const toggleResolve = async (taskId: string, issue: AuditIssue) => {
+    try {
+      const target = issue.status === 'resolved' ? 'open' : 'resolved';
+      await api.updateAuditIssue(issue.id, {
+        status: target,
+        resolved_by: target === 'resolved' ? 'local-user' : undefined,
+        resolved_at: target === 'resolved' ? new Date().toISOString() : undefined,
+      });
+      const updated = await api.getAuditIssues(taskId);
+      setIssuesByTask(prev => ({ ...prev, [taskId]: updated }));
+      toast.success(target === 'resolved' ? '问题已标记为已解决' : '问题已标记为未解决');
+    } catch (e) {
+      console.error('更新问题状态失败:', e);
+      toast.error('更新问题状态失败');
+    }
+  };
+
+  const markAllResolved = async (taskId: string) => {
+    try {
+      const issues = await api.getAuditIssues(taskId);
+      const toResolve = issues.filter(i => i.status !== 'resolved');
+      await Promise.all(toResolve.map(i => api.updateAuditIssue(i.id, { status: 'resolved', resolved_by: 'local-user', resolved_at: new Date().toISOString() })));
+      const updated = await api.getAuditIssues(taskId);
+      setIssuesByTask(prev => ({ ...prev, [taskId]: updated }));
+      toast.success('已将该任务所有问题标记为已解决');
+    } catch (e) {
+      console.error('批量标记问题失败:', e);
+      toast.error('批量标记问题失败');
+    }
+  };
+
+  const renderIssueRow = (taskId: string, issue: AuditIssue) => (
+    <div key={issue.id} className="flex items-center justify-between p-3 border rounded-lg">
+      <div className="space-y-1">
+        <div className="text-sm font-medium">{issue.title}</div>
+        <div className="text-xs text-gray-500">{issue.file_path}{issue.line_number ? ` · 第 ${issue.line_number} 行` : ''}</div>
+        <div className="text-xs">严重性：{issue.severity} · 状态：{issue.status === 'resolved' ? '已解决' : '未解决'}</div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" onClick={() => toggleResolve(taskId, issue)}>
+          {issue.status === 'resolved' ? '标记未解决' : '标记已解决'}
+        </Button>
+      </div>
+    </div>
+  );
+
+  if (loading) {
+    return <div className="text-center py-12">加载问题中...</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label>筛选状态</Label>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger>
+              <SelectValue placeholder="全部" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部</SelectItem>
+              <SelectItem value="open">未解决</SelectItem>
+              <SelectItem value="resolved">已解决</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {tasks.map(task => {
+        const issues = (issuesByTask[task.id] || []).filter(i => filterStatus === 'all' ? true : i.status === filterStatus);
+        const counts = {
+          total: (issuesByTask[task.id] || []).length,
+          resolved: (issuesByTask[task.id] || []).filter(i => i.status === 'resolved').length,
+        };
+        return (
+          <Card key={task.id} className="card-modern">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>{getAuditTaskDisplayName(task)}</span>
+                <div className="flex items-center gap-3 text-sm text-gray-600">
+                  <span>已解决 {counts.resolved}/{counts.total}</span>
+                  {counts.total > 0 && counts.resolved < counts.total && (
+                    <Button size="sm" variant="outline" onClick={() => markAllResolved(task.id)}>一键标记已解决</Button>
+                  )}
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {issues.length > 0 ? issues.map(issue => renderIssueRow(task.id, issue)) : (
+                <div className="text-sm text-gray-500">暂无问题</div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }
